@@ -1,0 +1,121 @@
+directory:
+    temp: s:/WFP/MODIS/Scratch
+    GDAL: "C:/Program Files/GDAL/"
+
+EXTRACT:
+    directory:
+        GDAL: "C:/Program Files/GDAL/"
+
+MODIS:
+    filenames:
+        prefix: MOD13Q1
+        extension: .hdf
+        output: idn_phy_
+        output_ext: .tif
+
+    directory:
+        tools: "s:/WFP/MODIS/MODIS Reprojection Tool/win/bin/"
+        working: s:/WFP/MODIS/16Day/wfpdata/
+        output_mosaic: s:/WFP/MODIS/16Day/Mosaic/
+        output_ndvi: s:/WFP/MODIS/16Day/NDVI/
+        output_evi: s:/WFP/MODIS/16Day/EVI/
+
+EVI:
+    filenames:
+        prefix: idn_phy_MOD13Q1
+        extension: .tif
+
+NDVI:
+    filenames:
+        prefix: idn_phy_MOD13Q1
+        extension: .tif
+
+CHIRPS:
+    filenames:
+        input_prefix: chirps-v2.0
+        input_extension: .tiff
+        output_prefix: idn_cli_chirps-v2.0
+        output_ext: .tif
+
+    thresholds:
+        precipitation_threshold: 0.5
+        max_days_to_process: 6
+
+run:
+#    - process: MODIS
+#      type: mosaic
+#      input_dir: r:/MOD13Q1/
+#      output_dir: s:/WFP/MODIS/16Day/Mosaic/
+
+#    - process: MODIS
+#      type: extract
+#      layer: NDVI
+#      input_dir: s:/WFP/MODIS/16Day/Mosaic/
+#      output_dir: s:/WFP/MODIS/16Day/NDVI/
+#      output: MOD13Q1
+#      output_ext: .tif
+
+#    - process: MODIS
+#      type: crop
+#      prefix: MOD13Q1
+#      extension: .tif
+#      input_dir: s:\WFP\MODIS\16Day\NDVI
+#      output_dir: s:\WFP\MODIS\16Day\idn\NDVI
+#      boundary_file: s:\WFP\idn\idn_phy_modis_250m_grid_diss_a\idn_phy_modis_250m_grid_diss_a.shp
+
+#    - process: MODIS
+#      type: extract
+#      layer: EVI
+#      input_dir: s:/WFP/MODIS/16Day/Mosaic/
+#      output_dir: s:/WFP/MODIS/16Day/EVI/
+#      output: MOD13Q1
+#      output_ext: .tif
+
+#    - process: MODIS
+#      type: crop
+#      prefix: idn_phy_MOD13Q1
+#      extension: .tif
+#      input_dir: s:\WFP\MODIS\16Day\EVI
+#      output_dir: s:\WFP\MODIS\16Day\idn\EVI
+#      boundary_file: s:\WFP\idn\idn_phy_modis_250m_grid_diss_a\idn_phy_modis_250m_grid_diss_a.shp
+
+#    - process: NDVI
+#      input_dir: s:/WFP/MODIS/16Day/idn/NDVI/
+#      output_dir: s:/WFP/MODIS/16Day/idn/NDVI/LTAvg/
+#      functions: [AVG, MIN, MAX, STD]
+
+    - process: EVI
+      input_dir: s:/WFP/MODIS/16Day/idn/EVI/
+      output_dir: s:/WFP/MODIS/16Day/idn/EVI/LTAvg/
+      functions: [AVG, MIN, MAX, STD]
+
+#    - process: CHIRPS
+#      type: seasonal
+#      input_dir: s:/WFP/CHIRPS/Seasonal/
+#      output_dir: s:/WFP/CHIRPS/Seasonal/LTAvg/
+#      functions: [AVG, MIN, MAX]
+
+#    - process: CHIRPS
+#      type: monthly
+#      input_dir: s:/WFP/CHIRPS/Monthly/
+#      output_dir: s:/WFP/CHIRPS/Monthly/LTAvg/
+
+#    - process: EXTRACT
+#      input_dir: s:/WFP/CHIRPS/Daily/2015
+#      output_dir: s:/WFP/CHIRPS/Daily/2015/idn/
+#      input_prefix: chirps-v2.0
+#      input_extension: .tif
+#      output_prefix: idn_cli_chirps-v2.0
+#      output_ext: .tif
+#      shapefile: s:/WFP/idn/idn_cli_chirps_20_005_deg_grid_diss_a.shp
+
+#    - process: CHIRPS
+#      type: daily
+#      input_dir: s:/WFP/CHIRPS/Daily/2015/idn
+#      output_dir: s:/WFP/CHIRPS/Daily/2015/idn/DaysSinceLast/
+#      functions: [DSLW]
+#      input_prefix: idn_cli_chirps-v2.0
+#      input_extension: .tif
+#      output_prefix: idn_test
+#      output_ext: .tif
+
