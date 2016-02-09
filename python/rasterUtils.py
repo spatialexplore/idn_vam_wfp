@@ -1,10 +1,11 @@
 __author__ = 'rochelle'
 #!/usr/bin/env python
 # Import system modules
-from arcpy import env
-import os, sys
-from subprocess import check_call, CalledProcessError, STDOUT
-from directoryUtils import buildFileList
+import os
+from subprocess import check_call, CalledProcessError
+
+from python.utilities.directoryUtils import buildFileList
+
 
 def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path):
     # call gdalwarp to clip to shapefile
