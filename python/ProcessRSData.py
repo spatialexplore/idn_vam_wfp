@@ -32,17 +32,25 @@ VERSION
     $Id$
 """
 
-import sys, os, traceback, optparse
+import sys
+import os
+import traceback
+import optparse
 import time
+from datetime import date
+
 import arcpy
 import yaml
+
 import arcPyUtils
-from datetime import date
-from directoryUtils import unzipFiles
-from ndviUtils import calcNDVIAverages
-from modisUtils import mosaicMODIS, cropMODIS, extractNDVI, extractEVI
-import chirpsUtils
+from python.remotesensing.ndviUtils import calcLongTermAverageNDVI
+from python.remotesensing.eviUtils import calcLongTermAverageEVI
+from python.remotesensing.modisUtils import mosaicMODIS, cropMODIS, extractNDVI, extractEVI, calcLongTermAverageTemp
+from python.remotesensing import chirpsUtils
 import rasterUtils
+from precipitationAnalysis import calcRainfallAnomaly
+from vegetationAnalysis import calcVCI, calcTCI, calcVHI
+
 
 def configFileError(msg, e):
     print "Error in config file {0} : {1}".format(msg, str(e))
@@ -84,6 +92,7 @@ def processCHIRPS(process, cfg):
     funcs = process['functions']
     if process['type'] == 'monthly':
         print "Processing CHIRPS monthly data"
+        chirpsUtils.calcMonthlyAverages(inWks, outWks, funcs, filenames)
     elif process['type'] == 'seasonal':
         print "Processing CHIRPS seasonal data"
         chirpsUtils.calcSeasonalAverages(inWks, outWks, funcs, filenames)
@@ -98,6 +107,28 @@ def processCHIRPS(process, cfg):
         threshold = cfg['CHIRPS']['thresholds']['precipitation_threshold']
         ndays = cfg['CHIRPS']['thresholds']['max_days_to_process']
         chirpsUtils.calcDailyStatistics(inWks, outWks, temp_path, funcs, date(2015,06,30), filenames, filenames, threshold, ndays)
+    elif process['type'] == 'fetch_monthly':
+        print "Fetching monthly data"
+        if 'start_date' in process:
+            startDate = process['start_date']
+        else:
+            startDate = None
+        if 'end_date' in process:
+            endDate = process['end_date']
+        else:
+            endDate = None
+        chirpsUtils.getMonthlyDataFromFTP(outWks, startDate, endDate)
+    return 0
+
+def processTEMP(process, cfg):
+    inWks = process['input_dir']
+    outWks = process['output_dir']
+    arcpy.env.workspace = inWks
+    funcs = process['functions']
+    filenames = (process['input_prefix'], process['input_ext'])
+    if not funcs:
+        funcs = ['MIN', 'MAX']
+    calcLongTermAverageTemp(inWks, outWks, funcs, filenames)
     return 0
 
 def processNDVI(process, cfg):
@@ -105,11 +136,21 @@ def processNDVI(process, cfg):
     inWks = process['input_dir']
     outWks = process['output_dir']
     arcpy.env.workspace = inWks
-    funcs = process['functions']
-    filenames = (cfg['NDVI']['filenames']['prefix'], cfg['NDVI']['filenames']['extension'])
-    if not funcs:
-        funcs = ['AVG']
-    calcNDVIAverages(inWks, outWks, funcs, filenames)
+    if 'functions' in process:
+        funcs = process['functions']
+    else:
+        funcs = ['AVG, MIN, MAX']
+    if 'EVI' in cfg and 'filenames' in cfg['EVI'] and 'prefix' in cfg['EVI']['filenames']:
+        out_prefix = cfg['EVI']['filenames']['prefix']
+    if 'EVI' in cfg and 'filenames' in cfg['EVI'] and 'extension' in cfg['EVI']['filenames']:
+        out_ext = cfg['EVI']['filenames']['extension']
+    if 'output_prefix' in process:
+        out_prefix = process['output_prefix']
+    if 'output_ext' in process:
+        out_ext = process['output_ext']
+    filenames = (out_prefix, out_ext)
+
+    calcLongTermAverageNDVI(inWks, outWks, funcs, filenames)
     return 0
 
 def processEVI(process, cfg):
@@ -117,11 +158,21 @@ def processEVI(process, cfg):
     inWks = process['input_dir']
     outWks = process['output_dir']
     arcpy.env.workspace = inWks
-    funcs = process['functions']
-    filenames = (cfg['EVI']['filenames']['prefix'], cfg['EVI']['filenames']['extension'])
-    if not funcs:
-        funcs = ['AVG']
-    calcNDVIAverages(inWks, outWks, funcs, filenames)
+    if 'functions' in process:
+        funcs = process['functions']
+    else:
+        funcs = ['AVG, MIN, MAX']
+    if 'EVI' in cfg and 'filenames' in cfg['EVI'] and 'prefix' in cfg['EVI']['filenames']:
+        out_prefix = cfg['EVI']['filenames']['prefix']
+    if 'EVI' in cfg and 'filenames' in cfg['EVI'] and 'extension' in cfg['EVI']['filenames']:
+        out_ext = cfg['EVI']['filenames']['extension']
+    if 'output_prefix' in process:
+        out_prefix = process['output_prefix']
+    if 'output_ext' in process:
+        out_ext = process['output_ext']
+    filenames = (out_prefix, out_ext)
+
+    calcLongTermAverageEVI(inWks, outWks, funcs, filenames)
     return 0
 
 def processMODIS(inw, outw, process, cfg):
@@ -179,7 +230,52 @@ def processMODIS(inw, outw, process, cfg):
             extractNDVI(inWks, outWks, toolDir, filenames, out_filenames)
         elif process['layer'] == 'EVI':
             extractEVI(inWks, outWks, toolDir, filenames, out_filenames)
+    elif process['type'] == 'temperature':
+        print "Compute long-term average from MODIS Temperature data"
+        inWks = process['input_dir']
+        outWks = process['output_dir']
+        out_prefix = cfg['MODIS']['filenames']['prefix']
+        out_ext = cfg['MODIS']['filenames']['extension']
+        if 'output_prefix' in process:
+            out_prefix = process['output_prefix']
+        if 'output_ext' in process:
+            out_ext = process['output_ext']
+        filenames = (out_prefix, out_ext)
+        funcs = []
+        if 'functions' in process:
+            funcs = process['functions']
+        if not funcs:
+            funcs = ['MIN', 'MAX']
+        calcLongTermAverageTemp(inWks, outWks, funcs, filenames)
+    return 0
 
+def processAnalysis(process, cfg):
+    if process['type'] == 'rainfall_anomaly':
+        print "Compute monthly rainfall anomaly"
+        cur_file = process['current_file']
+        lta_file = process['longterm_avg_file']
+        out_file = process['output_file']
+        calcRainfallAnomaly(cur_file, lta_file, out_file)
+    elif process['type'] == 'VCI':
+        print "Compute Vegetation Condition Index"
+        cur_file = process['current_file']
+        evi_max_file = process['EVI_max_file']
+        evi_min_file = process['EVI_min_file']
+        out_file = process['output_file']
+        calcVCI(cur_file, evi_max_file, evi_min_file, out_file)
+    elif process['type'] == 'TCI':
+        print "Compute Temperature Condition Index"
+        cur_file = process['current_file']
+        lst_max_file = process['LST_max_file']
+        lst_min_file = process['LST_min_file']
+        out_file = process['output_file']
+        calcTCI(cur_file, lst_max_file, lst_min_file, out_file)
+    elif process['type'] == 'VHI':
+        print "Compute Vegetation Health Index"
+        vci_file = process['VCI_file']
+        tci_file = process['TCI_file']
+        out_file = process['output_file']
+        calcVHI(vci_file, tci_file, out_file)
     return 0
 
 def main (config):
@@ -237,6 +333,13 @@ def main (config):
         except Exception, e:
             configFileError("running process CHIRPS", e)
         try:
+            if p['process'] == 'TEMPERATURE':
+                print "Processing TEMPERATURE data"
+                processTEMP(p, cfg)
+        except Exception, e:
+            configFileError("running process TEMPERATURE", e)
+
+        try:
             if p['process'] == 'MODIS':
                 print "Processing MODIS data"
                 inWks = cfg['MODIS']['directory']['working']
@@ -244,6 +347,13 @@ def main (config):
                 processMODIS(inWks, outWks, p, cfg)
         except Exception, e:
             configFileError("running process MODIS", e)
+        try:
+            if p['process'] == 'Analysis':
+                print "Performing data analysis"
+                processAnalysis(p, cfg)
+        except Exception, e:
+            configFileError("performing data analysis", e)
+
 
 
 if __name__ == '__main__':
