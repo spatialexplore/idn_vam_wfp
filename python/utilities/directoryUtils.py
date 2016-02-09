@@ -34,6 +34,7 @@ __author__ = 'rochelle'
 
 from os import listdir, path
 import gzip
+import re
 
 def buildFileList(base_dir, extension='.tif'):
     fileList = []
@@ -48,6 +49,18 @@ def buildFileList(base_dir, extension='.tif'):
                 # file
                 fn, ext = path.splitext(fname)
                 if ext == extension:
+                    fileList.append(pth)
+    return fileList
+
+def getMatchingFiles(base_dir, filter):
+    fileList = []
+    if path.exists(base_dir):
+        all_files = listdir(base_dir)
+        for f in all_files:
+            pth = path.join(base_dir, f)
+            if not path.isdir(pth):
+                # check file against filter
+                if re.match(filter, f):
                     fileList.append(pth)
     return fileList
 
