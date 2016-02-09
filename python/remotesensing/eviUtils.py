@@ -31,14 +31,12 @@ VERSION
     $Id$
 """
 __author__ = 'rochelle'
-from directoryUtils import buildFileList
-from os import path, listdir
-from longTermAverage import calcAverage, calcMin, calcMax, calcStDev
-from ftplib import FTP
-from ftpUtils import getFilesFromFTP
-from datetime import timedelta, date
-from glob import glob
-from fnmatch import fnmatch, filter
+from os import path
+from fnmatch import filter
+import collections
+
+from python.utilities.directoryUtils import buildFileList
+from python.longTermAverage import calcAverage, calcMin, calcMax, calcStDev
 
 
 def performCalculations(fileList, baseName, outputPath, functionList):
@@ -131,4 +129,38 @@ def calcEVIAverages(base_path, output_path, functionList = [], filenames = ('idn
                 # default is to calculate the average
                 functionList.append('AVG')
             performCalculations(fl, newfilename, output_path, functionList)
+    return 0
+
+def calcLongTermAverageEVI(base_path, output_path, functionList = [], filenames = ('idn_cli_MOD13A3', '.tif')):
+    # tls_phy_MOD13A3.A2014182_005.1_km_monthly_EVI.tif
+    ext = filenames[1]
+    all_files = buildFileList(base_path, ext)
+    # do all - get all files, work out what years are included
+    yrs = []
+    daysOfYear = collections.defaultdict(list)
+    suffix = all_files[0].rsplit('.', 3)[2]
+
+    for fl in all_files:
+        p, f = path.split(fl)
+        ydoy = f.split('.', 2)[1]
+        y = int(ydoy[1:5])
+        d = int(ydoy[-7:-4])
+        if y%4 == 0 and d>60: # leap year and day after Feb 29, subtract one from day
+            d = d-1
+        daysOfYear[str("{0:03d}".format(d))].append(fl)
+        yrs.append(y)
+
+    years = set(yrs)
+    syr = min(years) #1981
+    eyr = max(years)
+    numyrs = eyr - syr
+
+    for dd in daysOfYear.keys():
+        newfilename = '{0}.{1}-{2}.{3}.{4}.{5}yrs'.format(filenames[0], syr, eyr, dd, suffix, str(numyrs))
+        if not functionList:
+            # default is to calculate the minimum and maximum
+            functionList.append('MIN')
+            functionList.append('MAX')
+        performCalculations(daysOfYear[dd], newfilename, output_path, functionList)
+
     return 0
