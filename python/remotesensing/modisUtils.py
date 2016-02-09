@@ -4,9 +4,14 @@ __author__ = 'rochelle'
 import os
 import errno
 from collections import defaultdict
-from directoryUtils import buildFileList
-from subprocess import check_call, CalledProcessError, STDOUT
-from rasterUtils import clipRasterToShp
+from subprocess import check_call, CalledProcessError
+
+import arcpy
+
+from python.utilities.directoryUtils import buildFileList
+from python.rasterUtils import clipRasterToShp
+from python.longTermAverage import calcAverage, calcMin, calcMax, calcStDev
+
 
 #toolspath = "/Volumes/Rochelle External/WFP/MODIS/MODIS Reprojection Tool/bin/"
 
@@ -163,3 +168,89 @@ def extractEVI(base_path, output_path, tools_path, filenames = ('MOD13Q1', '.hdf
             reprojectMosaic(pfl, tools_path)
     return 0
 
+def calcAverageOfDayNight(dayFile, nightFile, avgFile):
+    print "calcAverage: ", dayFile, nightFile
+    #an empty array/vector in which to store the different bands
+    rasters = []
+    #open rasters
+    rasters.append(dayFile)
+    rasters.append(nightFile)
+    outRaster = arcpy.sa.CellStatistics(rasters, "MEAN")
+    # Save the output
+    outRaster.save(avgFile)
+    print "saved avg in: ", avgFile
+    return 0
+
+def matchDayNightFiles(dayPath, nightPath, outPath):
+    dayFiles = list(os.listdir(dayPath))
+    nightFiles = set(os.listdir(nightPath))
+
+    print "Day files: ", dayFiles
+    print "Night files: ", nightFiles
+
+    for fl in dayFiles:
+        # find matching night file
+        d_fl, ext = os.path.splitext(os.path.basename(os.path.normpath(fl)))
+        if (ext == '.tif'):
+            d_t = d_fl.rpartition('.')
+            n_fl = d_t[0] + d_t[1] + 'hdf_06' + ext
+            if (n_fl) in nightFiles:
+                avg_fl = os.path.join(outPath, d_t[0] + d_t[1] + 'avg' + ext)
+                dp = os.path.join(dayPath, d_fl+ext)
+                np = os.path.join(nightPath, n_fl)
+                calcAverageOfDayNight(dp, np, avg_fl)
+    return 0
+
+def performCalculations(fileList, baseName, outputPath, functionList):
+    for f in functionList:
+        if f == 'AVG':
+            newfile = '{0}.avg.tif'.format(baseName)
+            ofl = os.path.join(outputPath, newfile)
+            calcAverage(fileList, ofl)
+        elif f == 'STD':
+            newfile = '{0}.std.tif'.format(baseName)
+            ofl = os.path.join(outputPath, newfile)
+            calcStDev(fileList, ofl)
+        elif f == 'MAX':
+            newfile = '{0}.max.tif'.format(baseName)
+            ofl = os.path.join(outputPath, newfile)
+            calcMax(fileList, ofl)
+        elif f == 'MIN':
+            newfile = '{0}.min.tif'.format(baseName)
+            ofl = os.path.join(outputPath, newfile)
+            calcMin(fileList, ofl)
+        else:
+            print f, ' is not a valid function.'
+    return 0
+
+def calcLongTermAverageTemp(base_path, output_path, functionList = [], filenames = ('idn_cli_MOD11C3', '.tif')):
+    # png_cli_MOD11C3.A2000061.005.2007177231646.avg
+    ext = filenames[1]
+    all_files = buildFileList(base_path, ext)
+    # do all - get all files, work out what years are included
+    yrs = []
+    days = []
+    daysOfYear = defaultdict(list)
+    for fl in all_files:
+        ydoy = getMODISYrAndDoY(fl)
+        y = int(ydoy[1:5])
+        d = int(ydoy[-3:])
+        if y%4 == 0 and d>60: # leap year and day after Feb 29, subtract one from day
+            d = d-1
+        daysOfYear[str("{0:03d}".format(d))].append(fl)
+        yrs.append(y)
+
+    years = set(yrs)
+    syr = min(years) #1981
+    eyr = max(years)
+    numyrs = eyr - syr
+
+    for dd in daysOfYear.keys():
+        newfilename = '{0}.{1}-{2}.{3}.{4}yrs'.format(filenames[0], syr, eyr, dd, str(numyrs))
+        if not functionList:
+            # default is to calculate the minimum and maximum
+            functionList.append('MIN')
+            functionList.append('MAX')
+        performCalculations(daysOfYear[dd], newfilename, output_path, functionList)
+
+    return 0
