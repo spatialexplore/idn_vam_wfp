@@ -33,16 +33,19 @@ VERSION
 
 __author__ = 'rochelle'
 
-from directoryUtils import buildFileList
 from os import path, listdir
-from longTermAverage import calcAverage, calcMin, calcMax, calcStDev
-from ftplib import FTP
-from ftpUtils import getFilesFromFTP
 from datetime import timedelta, date
-from precipitationAnalysis import daysSinceLast
 import datetime
+import logging
+
+from python.utilities.directoryUtils import buildFileList
+from python.longTermAverage import calcAverage, calcMin, calcMax, calcStDev
+from python.utilities.ftpUtils import openFTP, closeFTP, getFileFromFTP, getFilesFromFTP
+from python.precipitationAnalysis import daysSinceLast
 
 ftp_address_CHIRPS = 'chg-ftpout.geog.ucsb.edu'
+logger = logging.getLogger('chirpsUtils')
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 
 def getDailyDataFromFTP(localPath, datesList=[]):
     dailyDir = 'pub/org/chg/products/CHIRPS-2.0/global_daily/tifs/p25/'
@@ -55,28 +58,18 @@ def getDailyDataFromFTP(localPath, datesList=[]):
     else:
         sd = datesList[0]
         ed = datesList[1]
-        ftp = None
-        try:
-            ftp = FTP(ftp_address_CHIRPS)
-        except:
-            print("Error connecting to server ", ftp_address_CHIRPS)
-        ftp.login('anonymous','anonymous@')
+        ftp = openFTP(ftp_address_CHIRPS)
 
         while sd <= ed:
             yrs = '{0}'.format(sd.year)
             yrDir = path.join(dailyDir, yrs)
             fname = sd.strftime("chirps-v2.0.%Y.%m.%d.tif.gz")
-            print 'Looking for: ', fname, ' in ', yrDir
+            logger.debug('Looking for: %s in %s' % fname, yrDir)
             localFile = path.join(localPath, fname)
-            fileObj = open(localFile, 'wb')
             # try to find file in directory
             fn = yrDir + '/' + fname
-            # Download the file a chunk at a time using RETR
-            ftp.retrbinary('RETR ' + fn, fileObj.write)
-            # Close the file
-            fileObj.close()
-            print "retreived ", localFile
-
+            # Download file
+            getFileFromFTP(ftp, fn, localFile, False)
             sd = sd + timedelta(days=1)
         ftp.close()
     return 0
@@ -91,9 +84,39 @@ def getPentadDataFromFTP(localPath):
     getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', pentadDir, localPath)
     return 0
 
-def getMonthlyDataFromFTP(localPath):
+def getMonthlyDataFromFTP(localPath, startDate = None, endDate = None):
     monthlyDir = 'pub/org/chg/products/CHIRPS-2.0/global_monthly/tifs/'
-    getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', monthlyDir, localPath)
+    if not startDate:
+        # get all files
+        getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', monthlyDir, localPath)
+    elif not endDate:
+        # get all months AFTER startDate
+        ftp = openFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@')
+        ftp.cwd(monthlyDir)
+        filesList = ftp.nlst()
+        ftp.close()
+        transferList = []
+        for f in filesList:
+            y = getCHIRPSYear(f)
+            m = getCHIRPSMonth(f)
+            file_date = date(y, m, 1)
+            if (file_date >= startDate):
+                transferList.append(f)
+        getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', monthlyDir, localPath, False, transferList)
+    else:
+        # get all months between startDate and endDate (inclusive)
+        ftp = openFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@')
+        ftp.cwd(monthlyDir)
+        filesList = ftp.nlst()
+        ftp.close()
+        transferList = []
+        for f in filesList:
+            y = getCHIRPSYear(f)
+            m = getCHIRPSMonth(f)
+            file_date = date(y, m, 1)
+            if (file_date >= startDate) and (file_date <= endDate):
+                transferList.append(f)
+        getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', monthlyDir, localPath, False, transferList)
     return 0
 
 def getSeasonalDataFromFTP(localPath):
@@ -102,14 +125,7 @@ def getSeasonalDataFromFTP(localPath):
     return 0
 
 def getCHIRPSData(address, userName, passWord, remotePath, localPath, years, onlyDiff=True):
-    ftp = None
-    try:
-        ftp = FTP(address)
-    except:
-        print("Error connecting to server ", address)
-    ftp.login(userName,passWord)
-    ftp.cwd(remotePath)
-
+    ftp = openFTP(address)
     for i, val in enumerate(years):
         ftp.cwd(val)
         localPathYear = path.join(localPath, val)
@@ -130,18 +146,12 @@ def getCHIRPSData(address, userName, passWord, remotePath, localPath, years, onl
             print "new file: ", localFile
             grabFile = True
             if grabFile:
-                #open a the local file
-                fileObj = open(localFile, 'wb')
-                # Download the file a chunk at a time using RETR
-                ftp.retrbinary('RETR ' + fl, fileObj.write)
-                # Close the file
-                fileObj.close()
+                getFileFromFTP(ftp, fl, localFile, False)
                 filesMoved += 1
         print(transferList)
         ftp.cwd('..')
 
-    ftp.close()
-    ftp = None
+    closeFTP(ftp)
     return 0
 
 def performCalculations(fileList, baseName, outputPath, functionList):
@@ -202,6 +212,67 @@ def getCHIRPSSeason(filename):
     season = filename.split('.', 4)[3]
     return season
 
+def selectMonthlyFiles(base_path, months, years, filenames):
+    f_base = filenames[0]
+    ext = filenames[1]
+    all_files = buildFileList(base_path, ext)
+    if not years:
+        # do all - get all files, work out what years are included
+        yrs = []
+        for fl in all_files:
+            yrs.append(getCHIRPSYear(fl))
+        years = set(yrs)
+    if not months:
+        # do all
+        months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+
+    files = set(all_files)
+    fileList = []
+    for m in months:
+        yrList = []
+        for y in years:
+            # create file
+            fn = path.join(base_path, "{0}.{1}.{2}{3}".format(f_base, y, m, ext))
+            if fn in files:
+                if path.isfile(fn):
+                    yrList.append(fn)
+        yrList.sort()
+        mt = m, yrList
+        fileList.append(mt)
+    fileList.sort()
+    return fileList
+
+# Monthly files have filenames in the format:
+# idn_cli_chirps-v2.0.1981.01.monthly.tif.gz
+#
+def calcMonthlyAverages(base_path, output_path, functionList = [], filenames = ('idn_cli_chirps-v2.0', '.tif')):
+    ext = filenames[1]
+    all_files = buildFileList(base_path, ext)
+    # do all - get all files, work out what years are included
+    yrs = []
+    for fl in all_files:
+        yrs.append(getCHIRPSYear(fl))
+    years = set(yrs)
+    # do all
+    months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+
+    filesList = selectMonthlyFiles(base_path, months, years, filenames)
+    syr = min(years) #1981
+    eyr = max(years)
+    numyrs = int(eyr) - int(syr)
+    for m in range(0,12):
+        # for each month, calculate long term average
+        fl = (filesList[m])[1]
+#        mth = fl[0].split('.')[2]
+#        print "Calculating long term average for ", fl
+        newfilename = '{0}.{1}-{2}.{3}.monthly.{4}yrs'.format(filenames[0], syr, eyr, months[m], str(numyrs))
+        if not functionList:
+            # default is to calculate the average
+            functionList.append('AVG')
+        performCalculations(fl, newfilename, output_path, functionList)
+    return 0
+
+
 def selectDekadFiles(base_path, dekad, months, years, filenames):
     f_base = filenames[0]
     ext = filenames[1]
@@ -228,7 +299,7 @@ def selectDekadFiles(base_path, dekad, months, years, filenames):
             yrList = []
             for y in years:
                 # create file
-                fn = "{0}.{1}.{2}.{3}.dekad{4}".format(f_base, y, m, d, ext)
+                fn = path.join(base_path, "{0}.{1}.{2}.{3}{4}".format(f_base, y, m, d, ext))
                 if fn in files:
                     if path.isfile(fn):
                         yrList.append(fn)
@@ -241,25 +312,42 @@ def selectDekadFiles(base_path, dekad, months, years, filenames):
     fileList.sort()
     return fileList
 
+def getYearsList(base_path, ext):
+    all_files = buildFileList(base_path, ext)
+    # do all - get all files, work out what years are included
+    yrs = []
+    for fl in all_files:
+        yrs.append(getCHIRPSYear(fl))
+    years = set(yrs)
+    return years
 
 # Dekad files have filenames in the format:
 # idn_cli_chirps-v2.0.1981.01.1.dekad.tif.gz
 #
 def calcDekadAverages(base_path, output_path, functionList = [], filenames = ('idn_cli_chirps-v2.0', '.tif')):
     filesList = selectDekadFiles(base_path, [], [], [], filenames)
-    syr = 1981
-    eyr = 2015
+    years = getYearsList(base_path, filenames[1])
+
+    # do all
+    months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+
+    syr = min(years)
+    eyr = max(years)
+    numyrs = int(eyr)-int(syr)
+
     for m in range(0,12):
         # for each month, calculate long term average of each dekad
         for d in range(0,3):
             #for each dekad
             fl = ((filesList[m])[1])[d]
-            mth = fl[0].split('.')[3]
-            dd = fl[0].split('.')[4]
+            mth = months[m]
+#            mth = fl[0].split('.')[3]
+            dd = str(d+1)
+#            dd = fl[0].split('.')[4]
 #            nfl = 'idn_cli_chirps-v2.0.{0}-{1}.{2}.{3}.avg.tif'.format(syr, eyr, mth, dd)
 #            ofl = path.join(output_path, nfl)
             print "Calculating long term average for ", fl
-            newfilename = '{0}.{1}-{2}.{3}.{4}'.format(filenames[0], syr, eyr, mth, dd)
+            newfilename = '{0}.{1}-{2}.{3}.{4}.dekad.{5}yrs'.format(filenames[0], syr, eyr, mth, dd, str(numyrs))
             if not functionList:
                 # default is to calculate the average
                 functionList.append('AVG')
@@ -314,14 +402,18 @@ def selectPentadFiles(base_path, pentad, months, years, filenames):
 #
 def calcPentadAverages(base_path, output_path, functionList = [], filenames = ('idn_cli_chirps-v2.0', '.tiff')):
     filesList = selectPentadFiles(base_path, [], [], [], filenames)
-    syr = 1981
-    eyr = 2015
+    years = getYearsList(base_path, filenames[1])
+    syr = min(years)
+    eyr = max(years)
+    numyrs = int(eyr) - int(syr)
+    months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+
     for m in range(0,12):
         # for each month, calculate long term average of each pentad
         for p in range(0,6):
             #for each pentad
             fl = ((filesList[m])[1])[p][1]
-            mth = fl[0].split('.')[3]
+            mth = months[m]
             pd = fl[0].split('.')[4]
 #            nfl = 'idn_cli_chirps-v2.0.{0}-{1}.{2}.{3}.avg.tif'.format(syr, eyr, mth, pd)
 #            ofl = path.join(output_path, nfl)
@@ -356,7 +448,7 @@ def selectSeasonalFiles(base_path, seasonal, years, filenames):
         yrList = []
         for y in years:
             # create file
-            fn = "{0}{1}.{2}.{3}{4}".format(base_path, f_base, y, s, ext)
+            fn = path.join(base_path, "{0}.{1}.{2}{3}".format(f_base, y, s, ext))
             if fn in files:
                 if path.isfile(fn):
                     yrList.append(fn)
@@ -375,17 +467,22 @@ def calcSeasonalAverages(base_path, output_path, functionList = [], filenames = 
     if not filesList:
         print "No files to process. Please check the directory and try again."
         return -1
-    syr = 1981
-    eyr = 2014
+
+    years = getYearsList(base_path, filenames[1])
+    syr = min(years)
+    eyr = max(years)
+    numyrs = int(eyr) - int(syr)
+
     # for each month, calculate long term average of each season
     seasons = ['010203','020304','030405','040506', '050607', '060708', '070809', '080910', '091011', '101112', '111201', '120102']
     for s, val in enumerate(seasons):
         #for each seasonal
         fl = ((filesList[s])[1])
         if fl:
-            sea = fl[0].split('.')[3]
+#            sea = fl[0].split('.')[3]
+            sea = seasons[s]
             print "Calculating long term average for ", fl
-            newfilename = '{0}.{1}-{2}.{3}'.format(filenames[0], syr, eyr, sea)
+            newfilename = '{0}.{1}-{2}.{3}.{4}yrs'.format(filenames[0], syr, eyr, sea, str(numyrs))
             if not functionList:
                 # default is to calculate the average
                 functionList.append('AVG')
