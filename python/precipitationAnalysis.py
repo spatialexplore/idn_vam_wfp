@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 __author__ = 'rochelle'
-import arcpy
-import directoryUtils
 import os
+
+import arcpy
 import numpy
-from arcpy import env
-#from osgeo import gdal
-from arcpy.sa import Con, IsNull, SetNull, HighestPosition, BooleanAnd, BooleanNot, Raster, Minus, CellStatistics, Reclassify, RemapRange
+from osgeo import gdal
+from arcpy.sa import Con, IsNull, SetNull, HighestPosition, BooleanAnd, BooleanNot, Raster, CellStatistics, \
+    Divide
+
 
 # Find the last day with precipitation greater than threshold in the list of rasters
 # returns a raster of number of days since last rain
@@ -16,7 +17,7 @@ def reclassifyWetDay(in_raster, out_raster, threshold):
     arcpy.env.cellSize="MAXOF"
     ras = arcpy.sa.Raster(in_raster)
 
-#    ds = gdal.Open(in_raster)
+    ds = gdal.Open(in_raster)
     ras_array = numpy.array(ds.GetRasterBand(1).ReadAsArray())
     ras_array[ras_array == -9999] = numpy.nan
     ras_array[ras_array < threshold] = 0
@@ -196,3 +197,14 @@ def daysSinceLast(base_path, output_path, temp_path, rasters, output_filenames =
     cellStats = CellStatistics(rasters, "SUM")
     cellStats.save(fname)
     return 0
+
+# calculate a rainfall anomaly surface as int(100 * (current rainfall/long-term average rainfall) )
+def calcRainfallAnomaly(cur_filename, lta_filename, dst_filename):
+    cur_Raster = Raster(cur_filename)
+    lta_Raster = Raster(lta_filename)
+    dst_f = arcpy.sa.Divide(cur_Raster, lta_Raster)
+    dst_100f = arcpy.sa.Times(dst_f, 100)
+    dst = arcpy.sa.Int(dst_100f)
+    dst.save(dst_filename)
+    return 0
+
