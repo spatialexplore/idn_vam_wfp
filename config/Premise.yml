@@ -1,0 +1,68 @@
+database:
+  - database: test
+    host: localhost
+    port: 5432
+    user: rochelle
+    password: rochelle
+
+run:
+#  - process: SETUP_DB
+  - process: UPDATE_MARKETS
+    filename: S:/WFP2/Temp/market_locations.csv
+
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160214/NTB_data_2016_02_14.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+#
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160214/NTT_data_2016_02_14.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+#
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160207/NTB_data_2016_02_07.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+  - process: INGEST
+    filename: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise/NTB_data_2016_02_07.csv
+#
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160207/NTT_data_2016_02_07.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+  - process: INGEST
+    filename: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise/NTT_data_2016_02_07.csv
+#
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160131/NTB_data_2016_01_31.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+  - process: INGEST
+    filename: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise/NTB_data_2016_01_31.csv
+#
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160131/NTT_data_2016_01_31.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+  - process: INGEST
+    filename: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise/NTT_data_2016_01_31.csv
+#
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160124/NTB_data_2016_01_24.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+#
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160124/NTT_data_2016_01_24.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+#
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160117/NTB_data_2016_01_17.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+#
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160117/NTT_data_2016_01_17.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160110/NTB_data_2016_01_10.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+
+#    - process: GET
+#      url: https://s3.amazonaws.com/premise-dpc-iris/UN_ID/ID_data_drop/20160110/NTT_data_2016_01_10.csv
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/02_IDN/TabularData/Market Prices/Premise
+
