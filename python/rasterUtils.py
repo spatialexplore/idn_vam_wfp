@@ -4,7 +4,7 @@ __author__ = 'rochelle'
 import os
 from subprocess import check_call, CalledProcessError
 
-from python.utilities.directoryUtils import buildFileList
+import directoryUtils, filenameUtils
 
 
 def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path):
@@ -21,7 +21,7 @@ def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path):
     return 0
 
 def clipRastersInDirToShape(base_path, output_path, shapefile, filenames, output_filenames, gdal_path):
-    filesList = buildFileList(base_path, filenames[1])
+    filesList = directoryUtils.buildFileList(base_path, filenames[1])
     for ras in filesList:
     #    newras = os.path.join(outfolder, ras + "_Clip")
         ras_fn = os.path.split(ras)[1]
@@ -32,3 +32,27 @@ def clipRastersInDirToShape(base_path, output_path, shapefile, filenames, output
 #        clippedRasters.append(newras)
     print("successfully clipped rasters")
     return 0
+
+def cropFiles(base_path, output_path, bounds, tools_path, patterns = None, overwrite = False, logger = None):
+    import re
+    fileslist = []
+    if not patterns[0]:
+        # if no pattern, try all files
+        _p = '*'
+    else:
+        _p = patterns[0]
+
+    _all_files = directoryUtils.getMatchingFiles(base_path, _p)
+
+    for ifl in _all_files:
+        _f= os.path.basename(os.path.basename(ifl))
+        m = re.match(_p, _f)
+        new_filename = filenameUtils.generateOutputFilename(_f, _p, patterns[1])
+        out_raster = os.path.join(output_path, new_filename)
+
+        if not os.path.exists(out_raster) or overwrite == True:
+            # crop file here
+            if logger: logger.debug("Cropping file: %s",ifl)
+            clipRasterToShp(bounds, ifl, out_raster, tools_path)
+            fileslist.append(new_filename)
+    return fileslist

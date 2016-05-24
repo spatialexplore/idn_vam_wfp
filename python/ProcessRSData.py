@@ -41,16 +41,21 @@ from datetime import date
 
 import arcpy
 import yaml
+import logging
 
 import arcPyUtils
-from python.remotesensing.ndviUtils import calcLongTermAverageNDVI
-from python.remotesensing.eviUtils import calcLongTermAverageEVI
-from python.remotesensing.modisUtils import mosaicMODIS, cropMODIS, extractNDVI, extractEVI, calcLongTermAverageTemp
-from python.remotesensing import chirpsUtils
+from remotesensing import ndviUtils, eviUtils, modisUtils, chirpsUtils#, trmmUtils #.calcLongTermAverageNDVI
+#from eviUtils import calcLongTermAverageEVI, calcMonthlyLongTermAverageEVI
+#from modisUtils import mosaicMODIS, cropMODIS, extractNDVI, extractEVI, calcLongTermAverageTemp, tranformToWGS84, getMODISDataFromURL
+#import chirpsUtils
 import rasterUtils
-from precipitationAnalysis import calcRainfallAnomaly
+#import trmmUtils
+from utilities import directoryUtils
+from precipitationAnalysis import calcRainfallAnomaly, daysSinceLast
 from vegetationAnalysis import calcVCI, calcTCI, calcVHI
 
+logger = logging.getLogger('ProcessRSData')
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 
 def configFileError(msg, e):
     print "Error in config file {0} : {1}".format(msg, str(e))
@@ -72,6 +77,10 @@ def processExtract(process, config):
     if 'shapefile' in process:
         shapefile = process['shapefile']
     gdal_path = config['EXTRACT']['directory']['GDAL']
+    if ext.endswith(".gz"):
+        # need to unzip first
+        directoryUtils.unzipFiles(inw, ".gz")
+        ext = ext[:-3]
     filenames = (prefix, ext)
     output_filenames = (output_prefix, output_ext)
     rasterUtils.clipRastersInDirToShape(inw, outw, shapefile, filenames, output_filenames, gdal_path)
@@ -85,23 +94,63 @@ def processCHIRPS(process, cfg):
     if 'input_prefix' in process:
         prefix = process['input_prefix']
     filenames = (prefix, ext)
-    inWks = process['input_dir']
-    outWks = process['output_dir']
+    if 'input_dir' in process:
+        inWks = process['input_dir']
+    else:
+        inWks = None
+    if 'output_dir' in process:
+        outWks = process['output_dir']
+    else:
+        outWks = None
     temp_path = cfg['directory']['temp']
     arcpy.env.workspace = inWks
-    funcs = process['functions']
-    if process['type'] == 'monthly':
-        print "Processing CHIRPS monthly data"
-        chirpsUtils.calcMonthlyAverages(inWks, outWks, funcs, filenames)
-    elif process['type'] == 'seasonal':
-        print "Processing CHIRPS seasonal data"
-        chirpsUtils.calcSeasonalAverages(inWks, outWks, funcs, filenames)
-    elif process['type'] == 'pentad':
-        print "Processing CHIRPS pentad data"
-        chirpsUtils.calcPentadAverages(inWks, outWks, funcs, filenames)
-    elif process['type'] == 'dekad':
-        print "Processing CHIRPS dekad data"
-        chirpsUtils.calcDekadAverages(inWks, outWks, funcs, filenames)
+    if 'functions' in process:
+        funcs = process['functions']
+    else:
+        funcs = None
+    if process['type'] == 'longterm_average':
+        if process['interval'] == 'monthly':
+            print "Processing CHIRPS monthly data"
+            chirpsUtils.calcMonthlyAverages(inWks, outWks, funcs, filenames)
+        elif process['interval'] == 'seasonal':
+            print "Processing CHIRPS seasonal data"
+            chirpsUtils.calcSeasonalAverages(inWks, outWks, funcs, filenames)
+        elif process['interval'] == 'pentad':
+            print "Processing CHIRPS pentad data"
+            chirpsUtils.calcPentadAverages(inWks, outWks, funcs, filenames)
+        elif process['interval'] == 'dekad':
+            print "Processing CHIRPS dekad data"
+            chirpsUtils.calcDekadAverages(inWks, outWks, funcs, filenames)
+        elif process['interval'] == 'dekad_range':
+            print "Processing CHIRPS dekad data for custom date range"
+            startDate = []
+            endDate = []
+            if 'start_dekad_month' in process:
+                startDate = process['start_dekad_month']
+            if 'end_dekad_month' in process:
+                endDate = process['end_dekad_month']
+            years = []
+            if 'years_between' in process:
+                years = process['years_between']
+            chirpsUtils.calcLongTermAverage_Dekad_Dates(inWks, outWks, startDate, endDate, years, funcs, filenames)
+    elif process['type'] == 'accumulation':
+        if process['interval'] == 'dekad_range':
+            print "Processing CHIRPS dekad data for custom date range"
+            start = []
+            end = []
+            if 'start_dekad_month_year' in process:
+                st = process['start_dekad_month_year']
+                start = [int(st[0]), int(st[1]), int(st[2])]
+            else:
+                print "Error: start_dekad_month_year is missing"
+                raise
+            if 'end_dekad_month_year' in process:
+                e = process['end_dekad_month_year']
+                end = [int(e[0]), int(e[1]), int(e[2])]
+            else:
+                print "Error: start_dekad_month_year is missing"
+                raise
+            chirpsUtils.calcDekadAccumulation_Dates(inWks, outWks, start, end, filenames)
     elif process['type'] == 'daily':
         print "Processing CHIRPS daily data"
         threshold = cfg['CHIRPS']['thresholds']['precipitation_threshold']
@@ -118,6 +167,26 @@ def processCHIRPS(process, cfg):
         else:
             endDate = None
         chirpsUtils.getMonthlyDataFromFTP(outWks, startDate, endDate)
+    elif process['type'] == 'crop':
+        print "Cropping raster to boundary"
+        if 'input_file' in process:
+            inFile = process['input_file']
+        else:
+            inFile = None
+        if 'output_file' in process:
+            outFile = process['output_file']
+        else:
+            outFile = None
+        if 'boundary_file' in process:
+            shpfile = process['boundary_file']
+        else:
+            shpfile = None
+        if inFile and outFile and shpfile:
+            if os.path.splitext(inFile)[1] == '.gz':
+                # need to unzip file first
+                inFile = directoryUtils.unzipFile(inFile)
+            gdal_path = cfg['directory']['GDAL']
+            rasterUtils.clipRasterToShp(shpfile, inFile, outFile, gdal_path)
     return 0
 
 def processTEMP(process, cfg):
@@ -128,7 +197,7 @@ def processTEMP(process, cfg):
     filenames = (process['input_prefix'], process['input_ext'])
     if not funcs:
         funcs = ['MIN', 'MAX']
-    calcLongTermAverageTemp(inWks, outWks, funcs, filenames)
+    modisUtils.calcLongTermAverageTemp(inWks, outWks, funcs, filenames)
     return 0
 
 def processNDVI(process, cfg):
@@ -150,7 +219,7 @@ def processNDVI(process, cfg):
         out_ext = process['output_ext']
     filenames = (out_prefix, out_ext)
 
-    calcLongTermAverageNDVI(inWks, outWks, funcs, filenames)
+    ndviUtils.calcLongTermAverageNDVI(inWks, outWks, funcs, filenames)
     return 0
 
 def processEVI(process, cfg):
@@ -158,6 +227,10 @@ def processEVI(process, cfg):
     inWks = process['input_dir']
     outWks = process['output_dir']
     arcpy.env.workspace = inWks
+    if 'interval' in process:
+        interval = process['interval']
+    else:
+        interval = 'MONTHLY'
     if 'functions' in process:
         funcs = process['functions']
     else:
@@ -172,7 +245,10 @@ def processEVI(process, cfg):
         out_ext = process['output_ext']
     filenames = (out_prefix, out_ext)
 
-    calcLongTermAverageEVI(inWks, outWks, funcs, filenames)
+    if interval == 'MONTHLY':
+        eviUtils.calcMonthlyLongTermAverageEVI(inWks, outWks, funcs, filenames)
+    else:
+        eviUtils.calcLongTermAverageEVI(inWks, outWks, funcs, filenames)
     return 0
 
 def processMODIS(inw, outw, process, cfg):
@@ -181,7 +257,7 @@ def processMODIS(inw, outw, process, cfg):
     except Exception, e:
         configFileError("MODIS Tools directory", e)
     if process['type'] == 'mosaic':
-        print "Mosaic MODIS data"
+        logger.debug("Mosaic MODIS data")
         inWks = process['input_dir']
         outWks = process['output_dir']
         try:
@@ -189,9 +265,9 @@ def processMODIS(inw, outw, process, cfg):
         except Exception, e:
             workDir = outWks
         filenames = (cfg['MODIS']['filenames']['prefix'], cfg['MODIS']['filenames']['extension'])
-        mosaicMODIS(inWks, outWks, toolDir, workDir, filenames)
+        modisUtils.mosaicMODIS(inWks, outWks, toolDir, workDir, filenames)
     elif process['type'] == 'crop':
-        print "Crop MODIS data"
+        logger.debug("Crop MODIS data")
         try:
             prefix = process['prefix']
         except Exception, e:
@@ -206,17 +282,45 @@ def processMODIS(inw, outw, process, cfg):
             toolDir = cfg['directory']['GDAL']
         except Exception, e:
             print "No GDAL directory set. Using {0}".format(toolDir)
+
+        if 'file_pattern' in process:
+            pattern = process['file_pattern']
+        else:
+            pattern = r'^(?P<prefix>MOD\d{2}.\d.)(?P<datestamp>\d{4}[.]\d{2}[.]\d{2})(?P<ext>.*)'
+        if 'output_pattern' in process:
+            out_pattern = process['output_pattern']
+        else:
+            out_pattern = r'{prefix}{mod_prefix}{datestamp}.{suffix}'
+        patterns = (pattern, out_pattern)
+
         inWks = process['input_dir']
         outWks = process['output_dir']
         boundFile = process['boundary_file']
         filenames = (prefix, extension)
-        out_filenames = (cfg['MODIS']['filenames']['output'], cfg['MODIS']['filenames']['output_ext'])
-        cropMODIS(inWks, outWks, boundFile, toolDir, filenames, out_filenames)
+        if 'output_prefix':
+            out_prefix = process['output_prefix']
+        else:
+            out_prefix = cfg['MODIS']['filenames']['output']
+        if 'output_extension':
+            output_extension = '.tif'
+        else:
+            output_extension = cfg['MODIS']['filenames']['output_ext']
+        out_filenames = (out_prefix, output_extension)
+
+        modisUtils.cropMODIS(inWks, outWks, boundFile, toolDir, filenames, out_filenames, patterns)
     elif process['type'] == 'extract':
-        print "Extract layer from MODIS data"
+        logger.debug("Extract layer from MODIS data")
         inWks = process['input_dir']
         outWks = process['output_dir']
-        filenames = (cfg['MODIS']['filenames']['prefix'], cfg['MODIS']['filenames']['extension'])
+        try:
+            in_prefix = process['input']
+        except Exception, e:
+            in_prefix = cfg['MODIS']['filenames']['prefix']
+        try:
+            in_ext = process['input_ext']
+        except Exception, e:
+            in_ext = cfg['MODIS']['filenames']['extension']
+        filenames = (in_prefix, in_ext)
         try:
             out_prefix = process['output']
         except Exception, e:
@@ -226,10 +330,38 @@ def processMODIS(inw, outw, process, cfg):
         except Exception, e:
             out_ext = cfg['MODIS']['filenames']['output_ext']
         out_filenames = (out_prefix, out_ext)
+        if 'file_pattern' in process:
+            pattern = process['file_pattern']
+        else:
+            pattern = None #r'^(?P<datestamp>\d{4}[.]\d{2}[.]\d{2})?.*'
+        if 'output_pattern' in process:
+            out_pattern = process['output_pattern']
+        else:
+            out_pattern = None #r'{prefix}.{datestamp}_005{ext}'
+        if pattern == None or out_pattern == None:
+            patterns = None
+        else:
+            patterns = (pattern, out_pattern)
+        try:
+            toolDir = cfg['directory']['GDAL']
+        except Exception, e:
+            configFileError("GDAL directory", e)
         if process['layer'] == 'NDVI':
-            extractNDVI(inWks, outWks, toolDir, filenames, out_filenames)
+            modisUtils.extractNDVI(inWks, outWks, toolDir, patterns,logger=logger)
         elif process['layer'] == 'EVI':
-            extractEVI(inWks, outWks, toolDir, filenames, out_filenames)
+            modisUtils.extractEVI(inWks, outWks, toolDir, patterns, logger=logger)
+        elif process['layer'] == 'LST_Day':
+            try:
+                toolDir = cfg['directory']['GDAL']
+            except Exception, e:
+                configFileError("GDAL Tools directory", e)
+            modisUtils.extractLSTDay(inWks, outWks, toolDir, patterns, logger=logger)
+        elif process['layer'] == 'LST_Night':
+            try:
+                toolDir = cfg['directory']['GDAL']
+            except Exception, e:
+                configFileError("GDAL Tools directory", e)
+            modisUtils.extractLSTNight(inWks, outWks, toolDir, filenames, out_filenames, patterns)
     elif process['type'] == 'temperature':
         print "Compute long-term average from MODIS Temperature data"
         inWks = process['input_dir']
@@ -246,7 +378,56 @@ def processMODIS(inw, outw, process, cfg):
             funcs = process['functions']
         if not funcs:
             funcs = ['MIN', 'MAX']
-        calcLongTermAverageTemp(inWks, outWks, funcs, filenames)
+        if 'file_pattern' in process:
+            pattern = process['file_pattern']
+        modisUtils.calcLongTermAverageTemp(inWks, outWks, funcs, filenames, pattern)
+    elif process['type'] == 'day_night_average':
+        print "Calculate Average temperature from Day & Night"
+        day_file = process['filename_day']
+        night_file = process['filename_night']
+        out_filename = process['output_filename']
+        modisUtils.calcAverageOfDayNight(day_file, night_file, out_filename)
+    elif process['type'] == 'temp_average':
+        print "Calculate Average temperature from Day & Night for directory"
+        day_dir = process['directory_day']
+        night_dir = process['directory_night']
+        output_dir = process['directory_output']
+        if 'input_pattern' in process:
+            input_pattern = process['input_pattern']
+        else:
+            input_pattern = None
+        if 'output_pattern' in process:
+            output_pattern = process['output_pattern']
+        else:
+            output_pattern = None
+        patterns = (input_pattern, output_pattern)
+#        modisUtils.calcAverageOfDayNight_dir(output_dir, day_dir, night_dir, patterns)
+        modisUtils.matchDayNightFiles(day_dir, night_dir, output_dir)
+    elif process['type'] == 'download':
+        logger.debug("Downloading MODIS data")
+        outWks = process['output_dir']
+        try:
+            product = process['product']
+        except Exception, e:
+            product = 'MOD13A3.005'
+        try:
+            tiles = process['tiles']
+        except Exception, e:
+#            tiles = "h27v08, h27v09, h27v10, h28v08, h28v09, h28v10, h29v08, h29v09, h29v10, h30v08, h30v09, h30v10, h31v08, h31v09, h31v10, h32v08, h32v09, h32v10"
+            tiles = ""
+        try:
+            dates = process['dates']
+        except Exception, e:
+            dates = ""
+        try:
+            mosaic_dir = process['mosaic_dir']
+        except Exception, e:
+            mosaic_dir = ""
+        try:
+            url_base = process['url_base']
+        except Exception, e:
+            url_base = 'http://e4ftl01.cr.usgs.gov/MOLT/' + product
+        modisUtils.getMODISDataFromURL(outWks, product, tiles, dates, mosaic_dir, url_base, toolDir, logger)
     return 0
 
 def processAnalysis(process, cfg):
@@ -276,6 +457,104 @@ def processAnalysis(process, cfg):
         tci_file = process['TCI_file']
         out_file = process['output_file']
         calcVHI(vci_file, tci_file, out_file)
+    return 0
+
+def processRaster(process, cfg):
+    if process['type'] == 'projection':
+        inWks = process['input_dir']
+        outWks = process['output_dir']
+        out_prefix = cfg['MODIS']['filenames']['prefix']
+        out_ext = cfg['MODIS']['filenames']['extension']
+        if 'output_prefix' in process:
+            out_prefix = process['output_prefix']
+        if 'output_ext' in process:
+            out_ext = process['output_ext']
+        filenames = (out_prefix, out_ext)
+        try:
+            projection = process['projection']
+        except Exception, e:
+            projection = 'EPSG:4326'
+        try:
+            projection_text = process['projection_text']
+        except Exception, e:
+            projection_text = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AUTHORITY["EPSG","4326"]]'
+        try:
+            toolDir = cfg['directory']['GDAL']
+        except Exception, e:
+            print "No GDAL directory set. Using {0}".format(toolDir)
+
+        modisUtils.tranformToWGS84(inWks, outWks, toolDir, filenames, projection, projection_text)
+    elif process['type'] == 'crop':
+        print "Crop raster data"
+        try:
+            prefix = process['prefix']
+        except Exception, e:
+            prefix = "test"
+
+        try:
+            extension = process['extension']
+        except Exception, e:
+            extension = cfg['MODIS']['filenames']['extension']
+
+        try:
+            output = process['output_prefix']
+        except Exception, e:
+            output = "test_output"
+
+        try:
+            output_ext = process['output_extension']
+        except Exception, e:
+            output_ext = cfg['MODIS']['filenames']['extension']
+
+        try:
+            toolDir = cfg['directory']['GDAL']
+        except Exception, e:
+            print "No GDAL directory set. Using {0}".format(toolDir)
+
+        if 'file_pattern' in process:
+            pattern = process['file_pattern']
+        else:
+            pattern = None #r'^(?P<prefix>MOD\d{2}.\d.)(?P<datestamp>\d{4}[.]\d{2}[.]\d{2})(?P<ext>.*)'
+        if 'output_pattern' in process:
+            out_pattern = process['output_pattern']
+        else:
+            out_pattern = None #r'{prefix}{mod_prefix}{datestamp}.{suffix}'
+        if pattern == None or out_pattern == None:
+            patterns = None
+        else:
+            patterns = (pattern, out_pattern)
+
+        inWks = process['input_dir']
+        outWks = process['output_dir']
+        boundFile = process['boundary_file']
+        filenames = (prefix, extension)
+        out_filenames = (output, output_ext)
+#        rasterUtils.clipRastersInDirToShape(inWks, outWks, boundFile, filenames, out_filenames, toolDir, )
+        rasterUtils.cropFiles(inWks, outWks, boundFile, toolDir, patterns)
+    return 0
+
+def processTRMM(process, cfg):
+    if process['type'] == 'dslr':
+        inWks = process['input_dir']
+        outWks = process['output_dir']
+        tmpWks = process['temp_dir']
+
+        daysSinceLast(inWks, outWks, tmpWks)
+    elif process['type'] == 'download':
+        outWks = process['output_dir']
+        if 'start_date' in process:
+            startDate = process['start_date']
+        else:
+            startDate = None
+        if 'end_date' in process:
+            endDate = process['end_date']
+        else:
+            endDate = None
+        trmmUtils.getDailyTRMM(outWks,[startDate, endDate])
+    elif process['type'] == 'convert':
+        outWks = process['output_dir']
+        fname = process['filename']
+        trmmUtils.trmmNetCDFToTiff(fname, outWks)
     return 0
 
 def main (config):
@@ -353,6 +632,18 @@ def main (config):
                 processAnalysis(p, cfg)
         except Exception, e:
             configFileError("performing data analysis", e)
+        try:
+            if p['process'] == 'Raster':
+                print "Performing raster analysis"
+                processRaster(p, cfg)
+        except Exception, e:
+            configFileError("performing raster analysis", e)
+        try:
+            if p['process'] == 'TRMM':
+                print "Performing TRMM analysis"
+                processTRMM(p, cfg)
+        except Exception, e:
+            configFileError("performing TRMM analysis", e)
 
 
 
