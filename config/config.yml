@@ -84,10 +84,10 @@ run:
 #      output_dir: s:/WFP/MODIS/16Day/idn/NDVI/LTAvg/
 #      functions: [AVG, MIN, MAX, STD]
 
-    - process: EVI
-      input_dir: s:/WFP/MODIS/16Day/idn/EVI/
-      output_dir: s:/WFP/MODIS/16Day/idn/EVI/LTAvg/
-      functions: [AVG, MIN, MAX, STD]
+#    - process: EVI
+#      input_dir: s:/WFP/MODIS/16Day/idn/EVI/
+#      output_dir: s:/WFP/MODIS/16Day/idn/EVI/LTAvg/
+#      functions: [AVG, MIN, MAX, STD]
 
 #    - process: CHIRPS
 #      type: seasonal
@@ -119,3 +119,75 @@ run:
 #      output_prefix: idn_test
 #      output_ext: .tif
 
+    - process: MODIS
+      type: crop
+      prefix: MOD13Q1
+      extension: .tif
+      input_dir: 'T:\WFP2\Temp Data'
+      output_dir: 'T:\WFP2\Temp Data'
+      boundary_file: T:\WFP2\IDN_GIS\01_Data\02_IDN\Shapefiles\Boundaries\Subset\MODIS\idn_phy_modis_250m_grid_diss_a.shp
+
+    - process: MODIS
+      type: download
+      output_dir: E:/Download/MODIS/MOD13A3/HDF_MOD
+      mosaic_dir: E:/Download/MODIS/MOD13A3/Processed/HDF_MOD
+      product: MOD13A3.005
+      tiles: "h27v08,h27v09,h27v10,h28v08,h28v09,h28v10,h29v08,h29v09,h29v10,h30v08,h30v09,h30v10,h31v08,h31v09,h31v10,h32v08,h32v09,h32v10"
+      dates: [2015-03, 2015-04, 2015-05, 2015-06, 2015-07, 2015-08, 2015-09, 2015-10, 2015-11, 2015-12]
+
+    - process: MODIS
+      type: extract
+      layer: EVI
+      input_dir: e:/Download/MODIS/MOD13A3/Processed/HDF_MOD
+      output_dir: e:/Download/MODIS/MOD13A3/Processed/EVI
+      output: MOD13A3.005
+      output_ext: .tif
+
+    - process: MODIS
+      type: extract
+      layer: NDVI
+      input_dir: e:/Download/MODIS/MOD13A3/Processed/HDF_MOD
+      output_dir: e:/Download/MODIS/MOD13A3/Processed/NDVI
+      output: MOD13A3.005
+      output_ext: .tif
+
+    - process: MODIS
+      type: crop
+      prefix: idn_phy_MOD13A3
+      extension: .tif
+      input_dir: e:/Download/MODIS/MOD13A3/Processed/EVI
+      output_dir: e:/Download/MODIS/MOD13A3/Processed/IDN_EVI
+      boundary_file: D:/IDN_GIS/01_Data/02_IDN/ShapeFiles/Boundaries/Subset/MODIS/idn_bnd_subset_modis_1km_grid_diss_a.shp
+
+    - process: MODIS
+      type: crop
+      prefix: idn_phy_MOD13A3
+      extension: .tif
+      input_dir: e:/Download/MODIS/MOD13A3/Processed/NDVI
+      output_dir: e:/Download/MODIS/MOD13A3/Processed/IDN_NDVI
+      boundary_file: D:/IDN_GIS/01_Data/02_IDN/ShapeFiles/Boundaries/Subset/MODIS/idn_bnd_subset_modis_1km_grid_diss_a.shp
+
+
+#    - process: Raster
+#      type: projection
+#      input_dir: E:/Download/MODIS/MOD13Q1/Mosaic
+#      output_dir: E:/Download/MODIS/MOD13Q1/Mosaic/WGS84
+#      output_prefix: MOD13Q1
+#      output_ext: .tif
+#      projection: EPSG:4326
+#      projection_text: 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AUTHORITY["EPSG","4326"]]'
+
+#    - process: MODIS
+#      type: crop
+#      prefix: idn_phy_MOD13Q1
+#      extension: .tif
+#      input_dir: E:/Download/MODIS/MOD13Q1/Mosaic/WGS84
+#      output_dir: D:/IDN_GIS/01_Data/02_IDN/Rasters/Physical/Vegetation/MOD13Q1.EVI/By_16Days
+#      boundary_file: D:/IDN_GIS/01_Data/02_IDN/ShapeFiles/Boundaries/Subset/MODIS/idn_bnd_subset_modis_250m_grid_diss_a.shp
+
+#    - process: Analysis
+#      type: VCI
+#      current_file: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Physical/Vegetation/MOD13A3.EVI/ByMonth/tls_phy_MOD13A3.A2015335.005.1_km_monthly_EVI.tif
+#      EVI_max_file: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Physical/Vegetation/MOD13A3.EVI/Statistics_byMonth/tls_phy_MOD13A3.2000-2015.335.1_km_monthly_EVI.15yrs.max.tif
+#      EVI_min_file: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Physical/Vegetation/MOD13A3.EVI/Statistics_byMonth/tls_phy_MOD13A3.2000-2015.335.1_km_monthly_EVI.15yrs.min.tif
+#      output_file: S:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Vegetation_Condition_Index/tls_phy_MOD13A3.2015.335.1_km_monthly_EVI_VCI.tif

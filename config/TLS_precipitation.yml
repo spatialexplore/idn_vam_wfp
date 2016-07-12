@@ -31,25 +31,50 @@ CHIRPS:
 
 run:
 #    - process: CHIRPS
-#      type: seasonal
+#      type: longterm_average
+#      interval: seasonal
 #      input_dir: s:/WFP/CHIRPS/Seasonal/
 #      output_dir: s:/WFP/CHIRPS/Seasonal/LTAvg/
 #      functions: [AVG, MIN, MAX]
 
 #    - process: CHIRPS
-#      type: monthly
+#      type: longterm_average
+#      interval: monthly
 #      input_dir: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Monthly/ByYear
 #      output_dir: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Monthly/Statistics_ByMonth
 #      functions: [AVG, MIN, MAX, STD]
 
 #    - process: CHIRPS
-#      type: dekad
+#      type: longterm_average
+#      interval: dekad_range
 #      input_dir: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Dekad/ByDekad
 #      output_dir: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Dekad/Statistics_ByDekad
 #      functions: [AVG, MIN, MAX, STD]
+#      input_extension: .tif
+#      start_dekad_month: [1, 11]
+#      end_dekad_month: [1, 2]
 
 #    - process: CHIRPS
-#      type: seasonal
+#      type: accumulation
+#      interval: dekad_range
+#      input_dir: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Dekad/ByDekad
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Dekad/Statistics_ByDekad
+#      functions: [AVG, MIN, MAX, STD]
+#      input_extension: .tif
+#      start_dekad_month_year: [1, 11, 2015]
+#      end_dekad_month_year: [1, 2, 2016]
+
+#    - process: CHIRPS
+#      type: longterm_average
+#      interval: dekad
+#      input_dir: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Dekad/ByDekad
+#      output_dir: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Dekad/Testing
+#      functions: [AVG, MIN, MAX, STD]
+#      input_extension: .tif
+
+#    - process: CHIRPS
+#      type: longterm_average
+#      interval: seasonal
 #      input_dir: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Monthly-3/BySeason
 #      output_dir: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Monthly-3/Statistics_BySeason
 #      functions: [AVG, MIN, MAX, STD]
@@ -73,18 +98,24 @@ run:
 #      output_prefix: idn_test
 #      output_ext: .tif
 
+    - process: Analysis
+      type: rainfall_anomaly
+      current_file: s:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Dekad/Statistics_ByDekad/tls_cli_chirps-v2.0.2015.11.1-2016.2.1.dekad.sum.tif
+      longterm_avg_file: s:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Dekad/Statistics_ByDekad/tls_cli_chirps-v2.0.1.11-1.02.1981-2015.dekad.avg.tif
+      output_file: s:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Rainfall_Anomaly/tls_cli_chirps-v2.0.2015.11.1-2016.02.1.ratio.anom.tif
+
 #    - process: Analysis
 #      type: rainfall_anomaly
 #      current_file: s:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Monthly/ByYear/tls_cli_chirps-v2.0.2015.12.tif
 #      longterm_avg_file: s:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Monthly/Statistics_ByMonth/tls_cli_chirps-v2.0.1981-2015.12.monthly.34yrs.avg.tif
-#      output_file: s:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Rainfall_Anomaly/tls_cli_chirps-v2.0.2015.12.ratio_anom.tif
+#      output_file: s:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Rainfall_Anomaly/tls_cli_chirps-v2.0.2015.12.ratio.anom.tif
 
 
 #    - process: Analysis
 #      type: rainfall_anomaly
 #      current_file: s:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Monthly-3/BySeason/tls_cli_chirps-v2.0.2015.091011.tiff
 #      longterm_avg_file: s:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Climate/Precipitation/CHIRPS/Monthly-3/Statistics_BySeason/tls_cli_chirps-v2.0.1981-2015.091011.34yrs.avg.tif
-#      output_file: s:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Rainfall_Anomaly/tls_cli_chirps-v2.0.2015.091011.ratio_anom.tif
+#      output_file: s:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Rainfall_Anomaly/tls_cli_chirps-v2.0.2015.091011.ratio.anom.tif
 
 #    - process: MODIS
 #      type: temperature
@@ -115,11 +146,11 @@ run:
 #      EVI_min_file: S:/WFP2/IDN_GIS/01_Data/03_Regional/03_TLS/Rasters/Physical/Vegetation/MOD13A3.EVI/Statistics_byMonth/tls_phy_MOD13A3.2000-2015.335.1_km_monthly_EVI.15yrs.min.tif
 #      output_file: S:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Vegetation_Condition_Index/tls_phy_MOD13A3.2015.335.1_km_monthly_EVI_VCI.tif
 
-    - process: Analysis
-      type: VHI
-      VCI_file: S:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Vegetation_Condition_Index/tls_phy_MOD13A3.2015.335.1_km_monthly_EVI_VCI.tif
-      TCI_file: s:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Temperature_Condition_Index/tls_cli_MOD11C3.2015.335.tci.tif
-      output_file: s:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Vegetation_Health_Index/tls_phy_MODIS_2015.335.1_km_monthly_EVI_LST_VHI.tif
+#    - process: Analysis
+#      type: VHI
+#      VCI_file: S:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Vegetation_Condition_Index/tls_phy_MOD13A3.2015.335.1_km_monthly_EVI_VCI.tif
+#      TCI_file: s:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Temperature_Condition_Index/tls_cli_MOD11C3.2015.335.tci.tif
+#      output_file: s:/WFP2/IDN_GIS/05_Analysis/03_Early_Warning/Vegetation_Health_Index/tls_phy_MODIS_2015.335.1_km_monthly_EVI_LST_VHI.tif
 
 #    - process: Analysis
 #      type: TCI
