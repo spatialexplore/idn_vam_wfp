@@ -33,15 +33,15 @@ VERSION
 
 __author__ = 'rochelle'
 
-from os import path, listdir
-from datetime import timedelta, date
 import datetime
 import logging
+from datetime import timedelta, date
+from os import path, listdir
 
+from longTermAverage import calcAverage, calcMin, calcMax, calcStDev, calcSum
+from precipitationAnalysis import daysSinceLast
 from python.utilities.directoryUtils import buildFileList
-from python.longTermAverage import calcAverage, calcMin, calcMax, calcStDev
 from python.utilities.ftpUtils import openFTP, closeFTP, getFileFromFTP, getFilesFromFTP
-from python.precipitationAnalysis import daysSinceLast
 
 ftp_address_CHIRPS = 'chg-ftpout.geog.ucsb.edu'
 logger = logging.getLogger('chirpsUtils')
@@ -74,15 +74,97 @@ def getDailyDataFromFTP(localPath, datesList=[]):
         ftp.close()
     return 0
 
-def getDekadDataFromFTP(localPath):
+def downloadDekadDataFromFTP(localPath, dates=None):
     dekadDir = 'pub/org/chg/products/CHIRPS-2.0/global_dekad/tifs/'
-    getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', dekadDir, localPath)
+    all_files = []
+    if not dates:
+        # get all files
+        all_files.extend(getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', dekadDir, localPath))
+    else:
+        transferList = []
+        for d in dates:
+            if type(d) is not datetime.date:
+                d = datetime.datetime.strptime(d, '%Y-%m-%d')
+            y = d.strftime("%Y")
+            m = d.strftime("%m")
+            dd = (d.strftime("%d")).lstrip("0")
+            filename = "chirps-v2.0.{0}.{1}.{2}.tif.gz".format(y, m, dd)
+            transferList.append(filename)
+        if transferList:
+            all_files.extend(getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', dekadDir, localPath,
+                                             False, transferList))
+    return all_files
+
+def getPentadDataFromFTP(localPath, dates=None):
+    pentadDir = 'pub/org/chg/products/CHIRPS-2.0/global_pentad/tifs/'
+    if not dates:
+        # get all files
+        getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', pentadDir, localPath)
+    else:
+        transferList = []
+        for d in dates:
+            if type(d) is not datetime.date:
+                d = datetime.datetime.strptime(d, '%Y-%m-%d')
+            y = d.strftime("%Y")
+            m = d.strftime("%m")
+            dd = (d.strftime("%d")).lstrip("0")
+            filename = "chirps-v2.0.{0}.{1}.{2}.tif.gz".format(y, m, dd)
+            transferList.append(filename)
+        if transferList:
+            getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', pentadDir, localPath, False, transferList)
     return 0
 
-def getPentadDataFromFTP(localPath):
-    pentadDir = 'pub/org/chg/products/CHIRPS-2.0/global_pentad/tifs/'
-    getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', pentadDir, localPath)
-    return 0
+def downloadMonthlyDataFromFTP(localPath, dates=None):
+    monthlyDir = 'pub/org/chg/products/CHIRPS-2.0/global_monthly/tifs/'
+    all_files = []
+    if not dates:
+        # get all files
+        all_files.extend(getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', monthlyDir, localPath))
+    else:
+        transferList = []
+        for d in dates:
+            if type(d) is not datetime.date:
+                d = datetime.datetime.strptime(d, '%Y-%m')
+            y = d.strftime("%Y")
+            m = d.strftime("%m")
+            filename = "chirps-v2.0.{0}.{1}.tif.gz".format(y, m)
+            transferList.append(filename)
+        all_files.extend(getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', monthlyDir, localPath, False, transferList))
+    return all_files
+
+def downloadDailyDataFromFTP(localPath, dates=None):
+    dailyDir = 'pub/org/chg/products/CHIRPS-2.0/global_daily/tifs/p25/'
+    all_files = []
+    if not dates:
+        # get all files
+        getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', dailyDir, localPath)
+    else:
+        transferList = []
+        _curYear = ""
+        _first = True
+        for d in dates:
+            y = d.strftime("%Y")
+            m = d.strftime("%m")
+            dd = d.strftime("%d")
+            if y != _curYear:
+                if _first:
+                    _first = False
+                    _curYear = y
+                else:
+                    # different year, get all files currently in list
+                    _curDir = "{0}{1}/".format(dailyDir, _curYear)
+                    all_files.extend(getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', _curDir, localPath,
+                                                     False, transferList))
+                    transferList[:] = []
+                    _curYear = y
+            filename = "chirps-v2.0.{0}.{1}.{2}.tif".format(y, m, dd)
+            transferList.append(filename)
+        if transferList:
+            # get remaining files
+            _curDir = "{0}{1}/".format(dailyDir, _curYear)
+            all_files.extend(getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', _curDir, localPath, False, transferList))
+    return all_files
+
 
 def getMonthlyDataFromFTP(localPath, startDate = None, endDate = None):
     monthlyDir = 'pub/org/chg/products/CHIRPS-2.0/global_monthly/tifs/'
@@ -97,8 +179,8 @@ def getMonthlyDataFromFTP(localPath, startDate = None, endDate = None):
         ftp.close()
         transferList = []
         for f in filesList:
-            y = getCHIRPSYear(f)
-            m = getCHIRPSMonth(f)
+            y = int(getCHIRPSYear(f))
+            m = int(getCHIRPSMonth(f))
             file_date = date(y, m, 1)
             if (file_date >= startDate):
                 transferList.append(f)
@@ -118,6 +200,30 @@ def getMonthlyDataFromFTP(localPath, startDate = None, endDate = None):
                 transferList.append(f)
         getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', monthlyDir, localPath, False, transferList)
     return 0
+
+def downloadSeasonalDataFromFTP(localPath, dates=None):
+    seasonalDir = 'pub/org/chg/products/CHIRPS-2.0/global_3-monthly/tifs/'
+    all_files = []
+    if not dates:
+        # get all files
+        all_files.extend(getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', seasonalDir, localPath))
+    else:
+        transferList = []
+        for d in dates:
+            if type(d) is not datetime.date:
+                d = datetime.datetime.strptime(d, '%Y-%m')
+            y = d.strftime("%Y")
+            m = d.strftime("%m")
+            if m == '11':
+                s = "111201"
+            elif m == '12':
+                s = "120102"
+            else:
+                s = "{0}{1}{2}".format(m, str(int(m)+1).zfill(2), str(int(m)+2).zfill(2))
+            filename = "chirps-v2.0.{0}.{1}.tiff.gz".format(y, s)
+            transferList.append(filename)
+        all_files.extend(getFilesFromFTP(ftp_address_CHIRPS, 'anonymous', 'anonymous@', seasonalDir, localPath, False, transferList))
+    return all_files
 
 def getSeasonalDataFromFTP(localPath):
     seasonalDir = 'pub/org/chg/products/CHIRPS-2.0/global_3-monthly/tifs/'
@@ -172,6 +278,10 @@ def performCalculations(fileList, baseName, outputPath, functionList):
             newfile = '{0}.min.tif'.format(baseName)
             ofl = path.join(outputPath, newfile)
             calcMin(fileList, ofl)
+        elif f == 'SUM':
+            newfile = '{0}.sum.tif'.format(baseName)
+            ofl = path.join(outputPath, newfile)
+            calcSum(fileList, ofl)
         else:
             print f, ' is not a valid function.'
     return 0
@@ -312,13 +422,18 @@ def selectDekadFiles(base_path, dekad, months, years, filenames):
     fileList.sort()
     return fileList
 
-def getYearsList(base_path, ext):
+def getYearsList(base_path, ext, yrs = []):
     all_files = buildFileList(base_path, ext)
     # do all - get all files, work out what years are included
-    yrs = []
+    y = []
     for fl in all_files:
-        yrs.append(getCHIRPSYear(fl))
-    years = set(yrs)
+        fl_yr = getCHIRPSYear(fl)
+        if yrs:
+            if int(fl_yr) >= yrs[0] and int(fl_yr) <= yrs[1]:
+                y.append(fl_yr)
+        else:
+            y.append(fl_yr)
+    years = set(y)
     return years
 
 # Dekad files have filenames in the format:
@@ -354,6 +469,88 @@ def calcDekadAverages(base_path, output_path, functionList = [], filenames = ('i
             performCalculations(fl, newfilename, output_path, functionList)
 
 #            calcAverage(fl, ofl)
+    return 0
+
+def selectDekadFiles_Dates(base_path, start_date, end_date, filenames):
+    fileList = []
+    f_base = filenames[0]
+    ext = filenames[1]
+    all_files = buildFileList(base_path, ext)
+    # start_date is a list of [dekad, month, year]
+    # end_date is a list of [dekad, month, year]
+
+    start_m = start_date[1]
+    end_m = 12
+
+    # loop through range of years
+    for y in range(start_date[2], end_date[2]+1): #range() goes up to, but not including, the stop value
+        # loop from start month to end month for current year
+        if y == end_date[2]:
+            end_m = end_date[1]
+        for m in range(start_m, end_m+1):
+            start_d = 1
+            end_d = 3
+            if m == start_m and y == start_date[2]:
+                # start at start dekad for first year
+                start_d = start_date[0]
+            # if on last month, stop at end dekad
+            if m == end_m and y == end_date[2]:
+                end_d = end_date[0]
+            for d in range(start_d, end_d+1):
+                # create file
+                fn = path.join(base_path, "{0}.{1}.{2:02d}.{3}{4}".format(f_base, y, m, d, ext))
+                if fn in all_files:
+                    if path.isfile(fn):
+                        fileList.append(fn)
+        start_m = 1
+    return fileList, True
+
+# Calculate accumulation of all dekads between start and end date
+# start, end = [dekad, month, year]
+def calcDekadAccumulation_Dates(base_path, output_path, start, end, filenames = ('idn_cli_chirps-v2.0', '.tif')):
+    # find out files between start and end date
+    fl, success = selectDekadFiles_Dates(base_path, start, end, filenames)
+    newfile = ""
+    if success:
+        # calculate accumulation between dates
+        newfilename = '{0}.{1}.{2}.{3}-{4}.{5}.{6}.dekad'.format(filenames[0], start[2], start[1], start[0], end[2], end[1], end[0])
+        functionList = ['SUM']
+        performCalculations(fl, newfilename, output_path, functionList)
+        ofl = '{0}.sum.tif'.format(newfilename)
+        newfile = path.join(output_path, ofl)
+    else:
+        logger.debug('Could not compute accumulation for %s - %s. Files not found.' % "{0}.{1}.{2}".format(start[0], start[1], start[2]), "{0}.{1}.{2}".format(end[0], end[1], end[2]))
+
+    return newfile, success
+
+# start, end = [dekad, month]
+def calcLongTermAverage_Dekad_Dates(base_path, output_path, start, end, yrs = [], functionList = [], filenames = ('idn_cli_chirps-v2.0', '.tif')):
+    years = list(getYearsList(base_path, filenames[1], yrs))
+    years.sort()
+    accumFiles = []
+    for i,y in enumerate(years):
+        st = [int(start[0]), int(start[1]), int(y)]
+        ed = [int(end[0]), int(end[1]), int(y)]
+        # if crossing year boundary (end month is less that start month), change end year
+        if int(start[1]) > int(end[1]):
+            if i==len(years)-1:
+                break; # already on last year
+            ed = [int(end[0]), int(end[1]), int(years[i+1])]
+        fn, success = calcDekadAccumulation_Dates(base_path, output_path, st, ed, filenames)
+        if success:
+            accumFiles.append(fn)
+
+    print "Calculating long term average for ", accumFiles
+    syr = years[0]
+    eyr = years[len(years)-1]
+    if yrs:
+        syr = yrs[0]
+        eyr = yrs[1]
+    newfilename = '{0}.{1}.{2:02d}-{3}.{4:02d}.{5}-{6}.dekad'.format(filenames[0], start[0], start[1], end[0], end[1], syr, eyr)
+    if not functionList:
+        # default is to calculate the average
+        functionList.append('AVG')
+    performCalculations(accumFiles, newfilename, output_path, functionList)
     return 0
 
 #idn_cli_chirps-v2.0.1999.01.6.tif.gz
