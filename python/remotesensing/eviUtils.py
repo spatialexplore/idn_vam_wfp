@@ -31,12 +31,12 @@ VERSION
     $Id$
 """
 __author__ = 'rochelle'
-from os import path
-from fnmatch import filter
 import collections
+from fnmatch import filter
+from os import path
 
+from longTermAverage import calcAverage, calcMin, calcMax, calcStDev
 from python.utilities.directoryUtils import buildFileList
-from python.longTermAverage import calcAverage, calcMin, calcMax, calcStDev
 
 
 def performCalculations(fileList, baseName, outputPath, functionList):
