@@ -1,0 +1,99 @@
+
+directory:
+    GDAL: C:\OSGeo4W\bin
+    MRT: C:\Program Files\MODIS_MRT\bin
+
+run:
+
+## Processing chain begin - Compute Vegetation Condition Index
+    # download MODIS vegetation data (MOD13A3.005) tiles for Indonesia and mosaic
+    - process: MODIS
+      type: download
+      output_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD13A3\HDF_MOD
+      mosaic_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD13A3\Processed\HDF_MOD
+      product: MOD13A3.005
+      tiles: h27v08,h27v09,h27v10,h28v08,h28v09,h28v10,h29v08,h29v09,h29v10,h30v08,h30v09,h30v10,h31v08,h31v09,h31v10,h32v08,h32v09,h32v10
+      dates: [2016-02]
+
+    # extract MODIS NDVI and EVI
+    - process: MODIS
+      type: extract
+      layer: NDVI
+      input_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD13A3\Processed\HDF_MOD
+      output_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD13A3\Processed\NDVI
+
+    - process: MODIS
+      type: extract
+      layer: EVI
+      input_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD13A3\Processed\HDF_MOD
+      output_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD13A3\Processed\EVI
+
+    # crop data to region
+    - process: Raster
+      type: crop
+      file_pattern: ^(?P<product>MOD\d{2}A\d{1}).(?P<year>\d{4}).(?P<month>\d{2}).(?P<day>\d{2}).(?P<version>\d{3}).(?P<subset>.*)(?P<extension>\.tif$)
+      output_pattern: idn_phy_{product}.{year}.{month}.{day}.{version}.{subset}{extension}
+      input_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD13A3\Processed\EVI
+      output_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD13A3\Processed\IDN_EVI
+      boundary_file: T:\WFP2\IDN_GIS\01_Data\02_IDN\ShapeFiles\Boundaries\Subset\MODIS\idn_phy_modis_1km_grid_diss_a.shp
+
+    - process: Analysis
+      type: VCI
+      current_file: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD13A3\Processed\IDN_EVI\idn_phy_MOD13A3.2016.02.01.005.1_km_monthly_EVI.tif
+      EVI_max_file: T:\WFP2\IDN_GIS\01_Data\02_IDN\Rasters\Vegetation\MOD13A3.EVI\Statistics_ByMonth\idn_phy_MOD13A3.2000-2015.032.1_km_monthly_EVI.15yrs.max.tif
+      EVI_min_file: T:\WFP2\IDN_GIS\01_Data\02_IDN\Rasters\Vegetation\MOD13A3.EVI\Statistics_ByMonth\idn_phy_MOD13A3.2000-2015.032.1_km_monthly_EVI.15yrs.min.tif
+      output_file: T:\WFP2\IDN_GIS\05_Analysis\03_Early_Warning\Vegetation_Condition_Index\idn_phy_MOD13A3.2016.02.1_km_monthly_EVI_VCI.tif
+## Processing chain end - Compute Vegetation Condition Index
+
+## Processing chain begin - Compute Temperature Condition Index
+    # download MODIS temperature data (MOD11C3.005)
+    - process: MODIS
+      type: download
+      output_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD11C3\HDF_MOD
+      product: MOD11C3.005
+      dates: [2016-02]
+
+    - process: MODIS
+      type: extract
+      layer: LST_Day
+      input_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD11C3\HDF_MOD\2016.02.01
+      output_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD11C3\Processed\Day
+
+    - process: MODIS
+      type: extract
+      layer: LST_Night
+      input_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD11C3\HDF_MOD\2016.02.01
+      output_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD11C3\Processed\Night
+
+    - process: MODIS
+      type: temp_average
+      directory_day: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD11C3\Processed\Day
+      directory_night: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD11C3\Processed\Night
+      directory_output: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD11C3\Processed\Average
+      input_pattern: ^(?P<product>MOD\d{2}C\d{1}).A(?P<year>\d{4})(?P<dayofyear>\d{3}).(?P<version>\d{3}).(?P<code>.*).(?P<subset>hdf_\d{2})(?P<extension>\.tif$)
+      output_pattern: '{product}.A{year}{dayofyear}.{version}.{code}.avg{extension}'
+
+    - process: Raster
+      type: crop
+      file_pattern: ^(?P<product>MOD\d{2}C\d{1}).(?P<year>\d{4})(?P<dayofyear>\d{3}).(?P<version>\d{3}).(?P<average>avg)(?P<extension>\.tif$)
+      output_pattern: idn_cli_{product}.{year}{dayofyear}.{version}{extension}
+      input_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD11C3\Processed\Average
+      output_dir: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD11C3\Processed\IDN\LST
+      boundary_file: T:\WFP2\IDN_GIS\01_Data\02_IDN\ShapeFiles\Boundaries\Subset\MODIS\idn_phy_modis_lst_005_grid_diss_a.shp
+
+    - process: Analysis
+      type: TCI
+      open_source:
+      current_file: T:\WFP2\VAMPIRE\data\Download\MODIS\MOD11C3\Processed\IDN\LST\idn_cli_MOD11C3.2016032.005.tif
+      LST_max_file: T:\WFP2\IDN_GIS\01_Data\02_IDN\Rasters\Climate\Temperature\MODIS\MOD11C3\Statistics_byMonth\idn_cli_MOD11C3.2000-2014.02.14yrs.max.tif
+      LST_min_file: T:\WFP2\IDN_GIS\01_Data\02_IDN\Rasters\Climate\Temperature\MODIS\MOD11C3\Statistics_byMonth\idn_cli_MOD11C3.2000-2014.02.14yrs.min.tif
+      output_file: T:\WFP2\IDN_GIS\05_Analysis\03_Early_Warning\Temperature_Condition_Index\idn_cli_MOD11C3.2016.02.tci.tif
+## Processing chain end - Compute Temperature Condition Index
+
+## Processing chain begin - Compute Vegetation Health Index
+    - process: Analysis
+      type: VHI
+      VCI_file: T:\WFP2\IDN_GIS\05_Analysis\03_Early_Warning\Vegetation_Condition_Index\idn_phy_MOD13A3.2016.02.1_km_monthly_EVI_VCI.tif
+      TCI_file: T:\WFP2\IDN_GIS\05_Analysis\03_Early_Warning\Temperature_Condition_Index\idn_cli_MOD11C3.2016.02.tci.tif
+      output_file: T:\WFP2\IDN_GIS\05_Analysis\03_Early_Warning\Vegetation_Health_Index\idn_cli_MOD11C3.2016.02.1_km_monthly_EVI_LST_VHI.tif
+## Processing chain end - Compute Vegetation Health Index

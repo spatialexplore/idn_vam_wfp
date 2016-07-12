@@ -1,0 +1,41 @@
+
+directory:
+    GDAL: C:\OSGeo4W\bin
+    MRT: C:\Program Files\MODIS_MRT\bin
+    temp: T:\WFP2\WFP2\Temp
+
+CHIRPS:
+    filenames:
+        input_prefix: chirps-v2.0
+        input_extension: .tiff
+        output_prefix: idn_cli_chirps-v2.0
+        output_ext: .tif
+
+run:
+
+## Processing chain begin - Compute Rainfall Anomaly
+
+    # download CHIRPS precipitation data for Indonesia
+    - process: CHIRPS
+      type: download
+      interval: monthly
+      output_dir: T:\WFP2\VAMPIRE\data\Download\CHIRPS\Monthly
+      dates: [2016-02]
+
+    # crop data to region
+    - process: Raster
+      type: crop
+      input_dir: T:\WFP2\VAMPIRE\data\Download\CHIRPS\Monthly
+      output_dir: T:\WFP2\VAMPIRE\data\Download\CHIRPS\Monthly\IDN
+      file_pattern: ^(?P<product>chirps-v2.0).(?P<year>\d{4}).(?P<month>\d{2})(?P<extension>\.tif).*
+      output_pattern: 'idn_cli_{product}.{year}.{month}{extension}'
+      boundary_file: T:\WFP2\IDN_GIS\01_Data\02_IDN\Shapefiles\Boundaries\Subset\CHIRPS\idn_cli_chirps_20_005_deg_grid_diss_a.shp
+
+    # compute rainfall anomaly
+    - process: Analysis
+      type: rainfall_anomaly
+      current_file: T:\WFP2\VAMPIRE\data\Download\CHIRPS\Monthly\IDN\idn_cli_chirps-v2.0.2016.02.tif
+      longterm_avg_file: T:\WFP2\IDN_GIS\01_Data\02_IDN\Rasters\Climate\Precipitation\CHIRPS\Monthly\Statistics_ByMonth\idn_cli_chirps-v2.0.1981-2014.02.monthly.34yrs.avg.tif
+      output_file: T:\WFP2\IDN_GIS\05_Analysis\03_Early_Warning\Rainfall_Anomaly\idn_cli_chirps-v2.0.2016.02.ratio_anom.tif
+## Processing chain end - Compute Rainfall Anomaly
+
