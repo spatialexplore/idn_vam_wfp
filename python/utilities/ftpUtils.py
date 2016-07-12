@@ -36,6 +36,7 @@ from ftplib import FTP
 from os import path
 import logging
 import ftplib
+import os
 
 logger = logging.getLogger('ftpUtils')
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
@@ -70,6 +71,7 @@ def getFileFromFTP(ftp, srcname, destname, replace = False):
 
 
 def getFilesFromFTP(address, userName, passWord, remotePath, localPath, replace=False, filesList = None):
+    all_files = []
     ftp = None
     try:
         ftp = FTP(address)
@@ -102,13 +104,16 @@ def getFilesFromFTP(address, userName, passWord, remotePath, localPath, replace=
             try:
                 # Download the file a chunk at a time using RETR
                 ftp.retrbinary('RETR ' + fl, fileObj.write)
+                all_files.append(fileObj.name)
             except ftplib.all_errors, e:
                 logger.debug('Error getting file %s' % fl)
-                logger.debug(e.msg)
+                logger.debug(e.message)
+                fileObj.close()
+                os.remove(localFile)
             # Close the file
             fileObj.close()
             logger.debug('Retreived %s' % localFile)
     ftp.close()
     ftp = None
-    return 0
+    return all_files
 
