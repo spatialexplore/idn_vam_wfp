@@ -33,14 +33,14 @@ VERSION
 
 __author__ = 'rochelle'
 
-from os import path, listdir
-from ftplib import FTP
+import collections
 from datetime import timedelta
 from fnmatch import filter
-import collections
+from ftplib import FTP
+from os import path, listdir
 
+from longTermAverage import calcAverage, calcMin, calcMax, calcStDev
 from python.utilities.directoryUtils import buildFileList
-from python.longTermAverage import calcAverage, calcMin, calcMax, calcStDev
 from python.utilities.ftpUtils import getFilesFromFTP
 
 ftp_address_NDVI = 'chg-ftpout.geog.ucsb.edu'
