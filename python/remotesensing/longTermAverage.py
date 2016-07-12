@@ -33,7 +33,7 @@ def calcMax(fileList, maxFile):
     outRaster = arcpy.sa.CellStatistics(fileList, "MAXIMUM")
     # Save the output
     outRaster.save(maxFile)
-    print "saved minimum in: ", maxFile
+    print "saved maximum in: ", maxFile
     return 0
 
 def calcStDev(fileList, sdFile):
@@ -43,6 +43,15 @@ def calcStDev(fileList, sdFile):
     outRaster = arcpy.sa.CellStatistics(fileList, "STD")
     # Save the output
     outRaster.save(sdFile)
-    print "saved minimum in: ", sdFile
+    print "saved standard deviation in: ", sdFile
     return 0
 
+def calcSum(fileList, sdFile):
+    print "calcSum: ", fileList
+    arcpy.cellSize = "MAXOF"
+    arcpy.extent = "MAXOF"
+    outRaster = arcpy.sa.CellStatistics(fileList, "SUM")
+    # Save the output
+    outRaster.save(sdFile)
+    print "saved sum in: ", sdFile
+    return 0
