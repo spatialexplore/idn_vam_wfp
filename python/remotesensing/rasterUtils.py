@@ -15,7 +15,7 @@ def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, logger=None):
         if logger: logger.debug("%s",in_raster)
         if logger: logger.debug("%s",out_raster)
         gdal_exe = os.path.join(gdal_path, 'gdalwarp')
-        check_call([gdal_exe, '-srcnodata', '-9999', '-dstnodata', '-9999', '-crop_to_cutline', '-cutline', shpfile, in_raster, out_raster])
+        check_call([gdal_exe, '-t_srs', 'EPSG:4326', '-srcnodata', '-9999', '-dstnodata', '-9999', '-crop_to_cutline', '-cutline', shpfile, in_raster, out_raster])
     except CalledProcessError as e:
         if logger: logger.error("Error in gdalwarp")
         if logger: logger.error("%s",e.output)
