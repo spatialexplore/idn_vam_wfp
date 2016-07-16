@@ -1,38 +1,4 @@
-#!/usr/bin/env python
-"""
-SYNOPSIS
-
-    VampireMain [-h,--help] [-v,--verbose] [--version]
-
-DESCRIPTION
-
-    This script runs the VAMPIRE system. It takes a script file
-    containing instructions.
-
-EXAMPLES
-
-    TODO: Show some examples of how to use this script.
-
-EXIT STATUS
-
-    TODO: List exit codes
-
-AUTHOR
-
-    Rochelle O'Hagan <spatialexplore@gmail.com>
-
-LICENSE
-
-    This script is in the public domain, free from copyrights or restrictions.
-
-VERSION
-
-    $Id$
-"""
-
-import time
-import optparse
-import sys, os, traceback
+import time, optparse, sys, os, traceback
 import configProcessor
 
 if __name__ == '__main__':
@@ -47,7 +13,7 @@ if __name__ == '__main__':
         if options.config_file:
             config_f = options.config_file
             print 'config file=', config_f
-        configProcessor(config_f)
+        configProcessor.processConfig(config_f)
         if options.verbose: print time.asctime()
         if options.verbose: print 'TOTAL TIME IN MINUTES:',
         if options.verbose: print (time.time() - start_time) / 60.0
