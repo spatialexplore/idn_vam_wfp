@@ -19,7 +19,7 @@ import platform
 from utilities import directoryUtils
 #from directoryUtils import buildFileList
 from longTermAverage import calcAverage, calcMin, calcMax, calcStDev
-import filenameUtils
+from utilities import filenameUtils
 #from directoryUtils import getNewFilename
 
     # MOD11C3.A2016092.005.2016122120501.hdf
