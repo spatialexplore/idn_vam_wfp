@@ -2,11 +2,13 @@
 __author__ = 'rochelle'
 import os
 
-import arcpy
+#import arcpy
 import numpy
+import numpy.ma
 from osgeo import gdal
-from arcpy.sa import Con, IsNull, SetNull, HighestPosition, BooleanAnd, BooleanNot, Raster, CellStatistics, \
-    Divide
+import rasterio
+#from arcpy.sa import Con, IsNull, SetNull, HighestPosition, BooleanAnd, BooleanNot, Raster, CellStatistics, \
+#    Divide
 
 
 # Find the last day with precipitation greater than threshold in the list of rasters
@@ -208,3 +210,22 @@ def calcRainfallAnomaly(cur_filename, lta_filename, dst_filename):
     dst.save(dst_filename)
     return 0
 
+# calculate a rainfall anomaly surface as int(100 * (current rainfall/long-term average rainfall) )
+def calcRainfallAnomaly_os(cur_filename, lta_filename, dst_filename):
+    # arcpy-free version
+    with rasterio.open(cur_filename) as cur_r:
+        cur_band = cur_r.read(1, masked=True)
+        profile = cur_r.profile.copy()
+        print cur_r.nodatavals
+        with rasterio.open(lta_filename) as lta_r:
+            lta_a = lta_r.read(1, masked=True)
+            dst_f = numpy.zeros(cur_band.shape)
+            newd_f = numpy.ma.masked_where(numpy.ma.mask_or(numpy.ma.getmask(cur_band), numpy.ma.getmask(lta_r)), dst_f)
+            newd_f += numpy.divide(cur_band, lta_a) * 100.0
+            newd_f.astype(int)
+            res = newd_f.filled(fill_value=cur_r.nodata)
+            res2 = numpy.ma.masked_where(res==cur_r.nodata, res)
+            profile.update(dtype=rasterio.int32)
+            with rasterio.open(path=dst_filename, mode='w', **profile) as dst:
+                dst.write(res2.astype(rasterio.int32), 1)
+    return 0
