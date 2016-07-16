@@ -9,9 +9,12 @@ import re
 from collections import defaultdict
 from subprocess import check_call, CalledProcessError
 
-import arcpy
+#import arcpy
+import rasterio
+import numpy as np
 from osgeo import gdal
 from pymodis import downmodis
+import platform
 
 from utilities import directoryUtils
 #from directoryUtils import buildFileList
@@ -76,7 +79,10 @@ def getMODISDataFromURL(output_dir, product, tiles, dates, mosaic_dir,
         _check_files = modisDown.getFilesList(_folder_date)
         if logger: logger.debug("check files: %s", _check_files)
         dl_files = modisDown.checkDataExist(_check_files)
-        modisDown.downloadsAllDay(clean=True)
+        try:
+            modisDown.downloadsAllDay(clean=True)
+        except Exception, e:
+            if logger: logger.error("Error in pymodis.modisDown.downloadsAllDay")
         modisDown.removeEmptyFiles()
         modisDown.closeFilelist()
         _files = glob.glob(os.path.join(_new_folder, '{product}*.hdf'.format(product=product[:-4])))
@@ -192,7 +198,11 @@ def tranformToWGS84(base_path, output_path, tools_path, filenames = ('MOD13Q1', 
             # transform
             try:
                 ofl = os.path.join(output_path, ifl)
-                check_call([tools_path + 'gdalwarp.exe', '-t_srs', out_proj, ifl, ofl])
+                pf = platform.system()
+                if 'Windows' in pf:
+                    check_call([tools_path + 'gdalwarp.exe', '-t_srs', out_proj, ifl, ofl])
+                elif 'Linux' in pf:
+                    check_call([tools_path + 'gdalwarp', '-t_srs', out_proj, ifl, ofl])
             except CalledProcessError as e:
                 print("Error in change projection")
                 print(e.output)
@@ -213,7 +223,11 @@ def reprojectMosaic(param_file, tools_path, overwrite = False):
 def convertToTiff(ifl, ofl, tools_path, overwrite = False):
     try:
 #        ofl = os.path.join(output_path, ifl)
-        gdal_translate = os.path.join(tools_path, 'gdal_translate.exe')
+        pf = platform.system()
+        if pf == 'Windows':
+            gdal_translate = os.path.join(tools_path, 'gdal_translate.exe')
+        elif pf == 'Linux':
+            gdal_translate = os.path.join(tools_path, 'gdal_translate')
         check_call([gdal_translate, '-sds', ifl, ofl])
     except CalledProcessError as e:
         print("Error in converting to .tif")
@@ -224,7 +238,12 @@ def convertToTiff(ifl, ofl, tools_path, overwrite = False):
 def mosaicFiles(infile, outfile, toolspath):
     # call mrtmosaic using input filename
     try:
-        check_call([os.path.join(toolspath,'mrtmosaic.exe'), '-i', infile, '-o', outfile, '-s', "1 1"])
+        pf = platform.system()
+        if 'Windows' in pf:
+            check_call([os.path.join(toolspath,'mrtmosaic.exe'), '-i', infile, '-o', outfile, '-s', "1 1"])
+        elif 'Linux' in pf:
+            check_call([os.path.join(toolspath,'mrtmosaic'), '-i', infile, '-o', outfile, '-s', "1 1"])
+
     except CalledProcessError as e:
         print("Error in mrtmosaic")
         print(e.output)
@@ -461,6 +480,8 @@ def extractSubset(base_path, output_path, tools_path,
 #                _n = _n.replace(' ', '_')
                 _rf = "{0}.{1}{2}".format(os.path.splitext(os.path.basename(_ofl))[0], _n, os.path.splitext(_ofl)[1])
                 _cf = "{0}_{1}{2}".format(os.path.splitext(os.path.basename(_ofl))[0], str(idx+1).zfill(2), os.path.splitext(_ofl)[1])
+                if not os.path.exists(os.path.join(output_path, _cf)):
+                    _cf = "{0}_{1}{2}".format(os.path.splitext(os.path.basename(_ofl))[0], str(idx+1), os.path.splitext(_ofl)[1])
                 if idx+1 not in subset:
                     # remove un-needed files (including .aux & .aux.xml)
                     os.remove(os.path.join(output_path, _cf))
@@ -602,6 +623,17 @@ def calcAverageOfDayNight(dayFile, nightFile, avgFile):
     print "saved avg in: ", avgFile
     return 0
 
+def calcAverageOfDayNight_os(dayFile, nightFile, avgFile):
+    print "calcAverage: ", dayFile, nightFile
+    with rasterio.open(dayFile) as day_r:
+        profile = day_r.profile.copy()
+        day_a = day_r.read(1, masked=True)
+        with rasterio.open(nightFile) as night_r:
+            night_a = night_r.read(1, masked=True)
+            dst_r = np.mean((day_a, night_a), axis=0)
+            with rasterio.open(avgFile, 'w', **profile) as dst:
+                dst.write(dst_r.astype(rasterio.float64), 1)
+
 def calcAverageOfDayNight_dir(output_dir, dayDir, nightDir, patterns = (None, None)):
     print "calcAverage of Day & Night for directory: ", dayDir, nightDir
     #an empty array/vector in which to store the different bands
@@ -618,7 +650,7 @@ def calcAverageOfDayNight_dir(output_dir, dayDir, nightDir, patterns = (None, No
     return 0
 
 
-def matchDayNightFiles(dayPath, nightPath, outPath, patterns = (None, None)):
+def matchDayNightFiles(dayPath, nightPath, outPath, patterns = (None, None), open_src = False):
 #    dayFiles = list(os.listdir(dayPath))
     nightFiles = set(os.listdir(nightPath))
     if patterns[0]:
@@ -638,7 +670,10 @@ def matchDayNightFiles(dayPath, nightPath, outPath, patterns = (None, None)):
                 avg_fl = os.path.join(outPath, d_t[0] + d_t[1] + 'avg' + ext)
                 dp = os.path.join(dayPath, d_fl+ext)
                 np = os.path.join(nightPath, n_fl)
-                calcAverageOfDayNight(dp, np, avg_fl)
+                if open_src:
+                    calcAverageOfDayNight_os(dp, np, avg_fl)
+                else:
+                    calcAverageOfDayNight(dp, np, avg_fl)
     return 0
 
 def performCalculations(fileList, baseName, outputPath, functionList):
