@@ -4,9 +4,7 @@ __author__ = 'rochelle'
 import os
 from subprocess import check_call, CalledProcessError
 
-import directoryUtils
-import filenameUtils
-
+import utilities
 
 def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, logger=None):
     # call gdalwarp to clip to shapefile
@@ -44,12 +42,12 @@ def cropFiles(base_path, output_path, bounds, tools_path, patterns = None, overw
     else:
         _p = patterns[0]
 
-    _all_files = directoryUtils.getMatchingFiles(base_path, _p)
+    _all_files = utilities.directoryUtils.getMatchingFiles(base_path, _p)
 
     for ifl in _all_files:
         _f= os.path.basename(os.path.basename(ifl))
 #        m = re.match(_p, _f)
-        new_filename = filenameUtils.generateOutputFilename(_f, _p, patterns[1])
+        new_filename = utilities.filenameUtils.generateOutputFilename(_f, _p, patterns[1])
         out_raster = os.path.join(output_path, new_filename)
 
         if not os.path.exists(out_raster) or overwrite == True:
@@ -57,7 +55,7 @@ def cropFiles(base_path, output_path, bounds, tools_path, patterns = None, overw
             if logger: logger.debug("Cropping file: %s",ifl)
             if os.path.splitext(ifl)[1] == '.gz':
                 # unzip first
-                directoryUtils.unzipFile(ifl)
+                utilities.directoryUtils.unzipFile(ifl)
                 ifl = ifl[:-3] # remove .gz from filename
             clipRasterToShp(bounds, ifl, out_raster, tools_path)
             fileslist.append(new_filename)
