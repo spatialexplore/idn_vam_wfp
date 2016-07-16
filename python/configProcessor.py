@@ -35,10 +35,7 @@ VERSION
 import logging
 import yaml
 
-from remotesensing import modisUtils, chirpsUtils
-import rasterUtils
-from precipitationAnalysis import calcRainfallAnomaly, calcRainfallAnomaly_os
-from vegetationAnalysis import calcVCI, calcVCI_os, calcTCI, calcTCI_os, calcVHI, calcVHI_os
+from remotesensing import modisUtils, chirpsUtils, rasterUtils, precipitationAnalysis, vegetationAnalysis
 
 logger = logging.getLogger('configProcessor')
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
@@ -188,9 +185,9 @@ def __processAnalysis(process, cfg):
             __configFileError("No output file 'output_file' specified.", e)
             raise
         if 'open_source' in process:
-            calcRainfallAnomaly_os(cur_file, lta_file, out_file)
+            precipitationAnalysis.calcRainfallAnomaly_os(cur_file, lta_file, out_file)
         else:
-            calcRainfallAnomaly(cur_file, lta_file, out_file)
+            precipitationAnalysis.calcRainfallAnomaly(cur_file, lta_file, out_file)
 
     elif process['type'] == 'VCI':
         logger.debug("Compute Vegetation Condition Index")
@@ -216,9 +213,9 @@ def __processAnalysis(process, cfg):
             raise
 
         if 'open_source' in process:
-            calcVCI_os(cur_file, evi_max_file, evi_min_file, out_file)
+            vegetationAnalysis.calcVCI_os(cur_file, evi_max_file, evi_min_file, out_file)
         else:
-            calcVCI(cur_file, evi_max_file, evi_min_file, out_file)
+            vegetationAnalysis.calcVCI(cur_file, evi_max_file, evi_min_file, out_file)
 
     elif process['type'] == 'TCI':
         logger.debug("Compute Temperature Condition Index")
@@ -244,9 +241,9 @@ def __processAnalysis(process, cfg):
             raise
 
         if 'open_source' in process:
-            calcTCI_os(cur_file, lst_max_file, lst_min_file, out_file)
+            vegetationAnalysis.calcTCI_os(cur_file, lst_max_file, lst_min_file, out_file)
         else:
-            calcTCI(cur_file, lst_max_file, lst_min_file, out_file)
+            vegetationAnalysis.calcTCI(cur_file, lst_max_file, lst_min_file, out_file)
 
     elif process['type'] == 'VHI':
         logger.debug("Compute Vegetation Health Index")
@@ -267,9 +264,9 @@ def __processAnalysis(process, cfg):
             raise
 
         if 'open_source' in process:
-            calcVHI_os(vci_file, tci_file, out_file)
+            vegetationAnalysis.calcVHI_os(vci_file, tci_file, out_file)
         else:
-            calcVHI(vci_file, tci_file, out_file)
+            vegetationAnalysis.calcVHI(vci_file, tci_file, out_file)
 
     return 0
 
@@ -323,6 +320,9 @@ def processConfig (config):
             # parse config file
             with open(config, 'r') as ymlfile:
                 cfg = yaml.load(ymlfile)
+        else:
+            logger.error("A config file is required. Please specify a config file on the command line.")
+            return -1
     except Exception, e:
         logger.error("Cannot load config file.")
         raise
