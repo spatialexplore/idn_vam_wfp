@@ -37,8 +37,8 @@ import yaml
 
 from remotesensing import modisUtils, chirpsUtils
 import rasterUtils
-from precipitationAnalysis import calcRainfallAnomaly
-from vegetationAnalysis import calcVCI, calcTCI, calcTCI_os, calcVHI
+from precipitationAnalysis import calcRainfallAnomaly, calcRainfallAnomaly_os
+from vegetationAnalysis import calcVCI, calcVCI_os, calcTCI, calcTCI_os, calcVHI, calcVHI_os
 
 logger = logging.getLogger('configProcessor')
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
@@ -162,7 +162,11 @@ def __processMODIS(process, cfg):
                 else:
                     output_pattern = None
                 patterns = (input_pattern, output_pattern)
-                modisUtils.matchDayNightFiles(day_dir, night_dir, output_dir, patterns)
+                open_src = False
+                if 'open_source' in process:
+                    open_src = True
+
+                modisUtils.matchDayNightFiles(day_dir, night_dir, output_dir, patterns, open_src)
     return 0
 
 def __processAnalysis(process, cfg):
@@ -183,8 +187,10 @@ def __processAnalysis(process, cfg):
         except Exception, e:
             __configFileError("No output file 'output_file' specified.", e)
             raise
-
-        calcRainfallAnomaly(cur_file, lta_file, out_file)
+        if 'open_source' in process:
+            calcRainfallAnomaly_os(cur_file, lta_file, out_file)
+        else:
+            calcRainfallAnomaly(cur_file, lta_file, out_file)
 
     elif process['type'] == 'VCI':
         logger.debug("Compute Vegetation Condition Index")
@@ -209,7 +215,10 @@ def __processAnalysis(process, cfg):
             __configFileError("No output file 'output_file' specified.", e)
             raise
 
-        calcVCI(cur_file, evi_max_file, evi_min_file, out_file)
+        if 'open_source' in process:
+            calcVCI_os(cur_file, evi_max_file, evi_min_file, out_file)
+        else:
+            calcVCI(cur_file, evi_max_file, evi_min_file, out_file)
 
     elif process['type'] == 'TCI':
         logger.debug("Compute Temperature Condition Index")
@@ -257,7 +266,10 @@ def __processAnalysis(process, cfg):
             __configFileError("No output file 'output_file' specified.", e)
             raise
 
-        calcVHI(vci_file, tci_file, out_file)
+        if 'open_source' in process:
+            calcVHI_os(vci_file, tci_file, out_file)
+        else:
+            calcVHI(vci_file, tci_file, out_file)
 
     return 0
 
@@ -288,19 +300,16 @@ def __processRaster(process, cfg):
         except Exception, e:
             __configFileError("No input directory 'input_dir' set.", e)
             raise
-
         try:
             outWks = process['output_dir']
         except Exception, e:
             __configFileError("No output directory 'output_dir' set.", e)
             raise
-
         try:
             boundFile = process['boundary_file']
         except Exception, e:
             __configFileError("No boundary file specified." ,e)
             raise
-
         rasterUtils.cropFiles(inWks, outWks, boundFile, toolDir, patterns)
     return 0
 
