@@ -169,7 +169,7 @@ def generateRainfallAnomalyConfig(country, interval, start_date, output):
       type: rainfall_anomaly
       current_file: {2}/{9}/{10}_cli_chirps-v2.0.{3}.{4}.tif
       longterm_avg_file: {11}
-      output_file: {12}/CHIRPS/Monthly/{9}/Rainfall_Anomaly/{10}_cli_chirps-v2.0.{3}.{4}.ratio_anom.tif
+      output_file: {12}/CHIRPS/Monthly/{9}/Rainfall_Anomaly/{10}_cli_chirps-v2.0.{3}{4}.ratio_anom.tif
 ## Processing chain end - Compute Rainfall Anomaly
 
 """.format(_defaults['country_names'][country], interval, _dl_output, year, month, interval.capitalize(),
