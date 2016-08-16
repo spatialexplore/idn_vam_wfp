@@ -8,7 +8,7 @@ _defaults = {
     'gdal_dir' : '/usr/bin',
     'mrt_dir' : '/usr/bin/mrt/bin',
     'temp_dir' : '/tmp',
-    'base_data_dir' : '/srv/VAMPIRE/data/Download',
+    'base_data_dir' : '/srv/Vampire/data/Download',
     'base_product_dir' : '/var/lib/opengeo/geoserver/data/IDN_GIS',
     'country_names' : {'IDN' : 'Indonesia'},
     'country_tiles' : {'IDN' : 'h27v08,h27v09,h27v10,h28v08,h28v09,h28v10,h29v08,h29v09,h29v10,h30v08,h30v09,h30v10,h31v08,h31v09,h31v10,h32v08,h32v09,h32v10',
