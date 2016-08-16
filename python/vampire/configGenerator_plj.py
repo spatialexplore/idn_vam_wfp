@@ -399,11 +399,11 @@ def generateVHIConfig(country, interval, start_date, output):
       type: VHI
       VCI_file: {vci_file}
       TCI_file: {tci_file}
-      output_file: {product_dir}/05_Analysis/03_Early_Warning/Vegetation_Health_Index/{country_l}_cli_MOD11C3.{year}.{month}.1_km_monthly_EVI_LST_VHI.tif
+      output_file: {data_dir}/MODIS/Monthly/{country}/VHI/{country_l}_cli_MOD11C3.{year}.{month}.1_km_monthly_EVI_LST_VHI.tif
 ## Processing chain end - Compute Vegetation Health Index
 """.format(year=year, month=month, country=country, tci_file=_TCI_file,
            vci_file=_VCI_file, country_l=country.lower(),
-           product_dir=_defaults['base_product_dir'])
+           product_dir=_defaults['base_product_dir'], data_dir=_defaults['base_data_dir'])
 
             pfile.write(file_string)
             pfile.close()
