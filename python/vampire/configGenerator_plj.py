@@ -134,14 +134,14 @@ def generateRainfallAnomalyConfig(country, interval, start_date, output):
             _dl_output = "{0}/CHIRPS/{1}".format(_defaults['base_data_dir'], interval.capitalize())
             _crop_output_pattern = "'{0}".format(country.lower()) + "_cli_{product}.{year}.{month}{extension}'"
             if country == 'IDN':
-                _boundary_file = "{0}/01_Data/02_IDN/Shapefiles/Boundaries/National/" \
+                _boundary_file = "{0}/01_Data/02_IDN/ShapeFiles/Boundaries/National/" \
                                  "idn_bnd_subset_chirps_20_005_deg_grid_diss_a.shp".format(_defaults['base_product_dir'])
                 _longterm_avg_file = "{0}/01_Data/02_IDN/Rasters/Climate/Precipitation/CHIRPS" \
                 "/{2}/Statistics_By{3}/idn_cli_chirps-v2.0.1981-2014.{1}.{4}.34yrs.avg.tif".format(
                     _defaults['base_product_dir'], month, interval.capitalize(), _interval_name.capitalize(), interval.lower())
 
             else:
-                _boundary_file = "{0}/01_Data/03_Regional/{01}/Shapefiles/Boundaries/Subset/CHIRPS/" \
+                _boundary_file = "{0}/01_Data/03_Regional/{01}/ShapeFiles/Boundaries/Subset/CHIRPS/" \
                                  "{02}_cli_chirps_20_005_deg_grid_diss_a.shp".format(
                     _defaults['base_product_dir'], country, country.lower())
             file_pattern = '^(?P<product>chirps-v2.0).(?P<year>\d{4}).(?P<month>\d{2})(?P<extension>\.tif).*'
