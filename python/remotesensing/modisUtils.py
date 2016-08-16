@@ -74,7 +74,7 @@ def getMODISDataFromURL(output_dir, product, tiles, dates, mosaic_dir,
         if not os.path.exists(_new_folder):
             os.makedirs(_new_folder)
         _delta = 1
-        modisDown = downmodis.downModis(destinationFolder=_new_folder, password='Vampire1', user='rohagan', tiles=tiles,
+        modisDown = downmodis.downModis(destinationFolder=_new_folder, tiles=tiles,
                                         product=product, today=_month, delta=_delta)
         modisDown.connect()
         _check_files = modisDown.getFilesList(_folder_date)
