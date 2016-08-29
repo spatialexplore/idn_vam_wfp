@@ -191,19 +191,19 @@ def generateVCIConfig(country, interval, start_date, output):
         with pfile:
             year = start_date.strftime("%Y")
             month = start_date.strftime("%m")
-            basedate = datetime.datetime.strptime("2000.{0}.01".format(month), "%Y.%m.%d")
+            basedate = datetime.datetime.strptime("2001.{0}.01".format(month), "%Y.%m.%d")
             dayofyear = basedate.timetuple().tm_yday
-            if calendar.isleap(int(year)) and dayofyear > 60:
-                dayofyear = dayofyear - 1
+#            if calendar.isleap(int(year)) and dayofyear > 60:
+#                dayofyear = dayofyear + 1
 
             if country == 'IDN':
                 _boundary_file = "{0}/01_Data/02_IDN/ShapeFiles/Boundaries/Subset/MODIS/idn_phy_modis_1km_grid_diss_a.shp".format(
                     _defaults['base_product_dir'])
                 _output_pattern = 'idn_phy_{product}.{year}.{month}.{day}.{version}.{subset}{extension}'
-                _EVI_max_file = '{0}/01_Data/02_IDN/Rasters/Vegetation/MOD13A3.EVI/Statistics_ByMonth/idn_phy_MOD13A3' \
+                _EVI_max_file = '{0}/01_Data/02_IDN/Rasters/Physical/Vegetation/MOD13A3.EVI/Statistics_ByMonth/idn_phy_MOD13A3' \
                         '.2000-2015.{1}.1_km_monthly_EVI.15yrs.max.tif'.format(_defaults['base_product_dir'],
                                                                                str(dayofyear).zfill(3))
-                _EVI_min_file = '{0}/01_Data/02_IDN/Rasters/Vegetation/MOD13A3.EVI/Statistics_ByMonth/idn_phy_MOD13A3' \
+                _EVI_min_file = '{0}/01_Data/02_IDN/Rasters/Physical/Vegetation/MOD13A3.EVI/Statistics_ByMonth/idn_phy_MOD13A3' \
                         '.2000-2015.{1}.1_km_monthly_EVI.15yrs.min.tif'.format(_defaults['base_product_dir'],
                                                                                str(dayofyear).zfill(3))
             else:
@@ -287,8 +287,10 @@ def generateTCIConfig(country, interval, start_date, output):
         with pfile:
             year = start_date.strftime("%Y")
             month = start_date.strftime("%m")
-            basedate = datetime.datetime.strptime("2000.{0}.01".format(month), "%Y.%m.%d")
+            basedate = datetime.datetime.strptime("{0}.{1}.01".format(year, month), "%Y.%m.%d")
             dayofyear = basedate.timetuple().tm_yday
+            if calendar.isleap(int(year)) and dayofyear > 60:
+                dayofyear = dayofyear + 1
 
             _input_pattern = '^(?P<product>MOD\d{2}C\d{1}).A(?P<year>\d{4})(?P<dayofyear>\d{3}).(?P<version>\d{3}).(?P<code>.*).(?P<subset>hdf_\d{2})(?P<extension>\.tif$)'
             _avg_output_pattern = "'{product}.A{year}{dayofyear}.{version}.{code}.avg{extension}'"
