@@ -116,7 +116,7 @@ def calcVHI_os(vci_filename, tci_filename, dst_filename):
         print vci_r.nodatavals
         with rasterio.open(tci_filename) as tci_r:
             tci_a = tci_r.read(1, masked=True)
-            dst_f = np.zeros(tci_a.shape)
+            dst_f = np.zeros(vci_a.shape)
             newd_f = np.ma.masked_where(np.ma.mask_or(np.ma.getmask(vci_a), np.ma.getmask(tci_a)),
                                         dst_f)
             newd_f += ((vci_a + tci_a) * 0.5)
