@@ -18,6 +18,8 @@ def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, logger=None):
         if logger: logger.error("Error in gdalwarp")
         if logger: logger.error("%s",e.output)
         raise
+    except Exception, e:
+        if logger: logger.error("Warning in gdalwarp")
     return 0
 
 # def clipRastersInDirToShape(base_path, output_path, shapefile, filenames, output_filenames, gdal_path):
