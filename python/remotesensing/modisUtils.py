@@ -12,6 +12,7 @@ from subprocess import check_call, CalledProcessError
 #import arcpy
 import rasterio
 import numpy as np
+import urllib2
 from osgeo import gdal
 from pymodis import downmodis
 import platform
@@ -56,6 +57,7 @@ modis_constants = {
 
 
 #toolspath = "/Volumes/Rochelle External/WFP/MODIS/MODIS Reprojection Tool/bin/"
+from cookielib import CookieJar
 
 # Get MODIS tiles and mosaic into one HDF4Image format file.
 # No changes to projection are performed.
@@ -65,6 +67,25 @@ def getMODISDataFromURL(output_dir, product, tiles, dates, mosaic_dir,
     m_files = []
     if tiles == '':
         tiles=None
+
+    # # new setup to handle authentication
+    # username = 'elninoksp'
+    # password = 'elninoKSP2016'
+    # password_manager = urllib2.HTTPPasswordMgrWithDefaultRealm()
+    # password_manager.add_password(None, "https://urs.earthdata.nasa.gov", username, password)
+    #
+    # cookie_jar = CookieJar()
+    #
+    # # Install all the handlers.
+    #
+    # opener = urllib2.build_opener(
+    #     urllib2.HTTPBasicAuthHandler(password_manager),
+    #     # urllib2.HTTPHandler(debuglevel=1),    # Uncomment these two lines to see
+    #     # urllib2.HTTPSHandler(debuglevel=1),   # details of the requests/responses
+    #     urllib2.HTTPCookieProcessor(cookie_jar))
+    # urllib2.install_opener(opener)
+    # end of new setup to handle authentication
+
     for d in dates:
         if logger: logger.debug("downloading %s", d)
         _month = d + '-01'
@@ -75,7 +96,7 @@ def getMODISDataFromURL(output_dir, product, tiles, dates, mosaic_dir,
             os.makedirs(_new_folder)
         _delta = 1
         modisDown = downmodis.downModis(destinationFolder=_new_folder, tiles=tiles,
-                                        product=product, today=_month, delta=_delta)
+                                        product=product, today=_month, delta=_delta, user='elninoksp', password='elninoKSP2016')
         modisDown.connect()
         _check_files = modisDown.getFilesList(_folder_date)
         if logger: logger.debug("check files: %s", _check_files)
