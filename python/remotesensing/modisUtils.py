@@ -108,7 +108,7 @@ def getMODISDataFromURL(output_dir, product, tiles, dates, mosaic_dir,
         modisDown.removeEmptyFiles()
         modisDown.closeFilelist()
         _files = glob.glob(os.path.join(_new_folder, '{product}*.hdf'.format(product=product[:-4])))
-        if logger: logger.debug("files: %s", files)
+        if logger: logger.debug("files: %s", _files)
         if logger: logger.debug("dl_files: %s", dl_files)
         if mosaic_dir:
             # mosaic files
