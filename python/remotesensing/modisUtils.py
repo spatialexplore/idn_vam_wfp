@@ -243,9 +243,9 @@ def reprojectMosaic(param_file, tools_path, overwrite = False):
     return 0
 
 def convertToTiff(ifl, ofl, tools_path, overwrite = False):
+    pf = platform.system()
     try:
 #        ofl = os.path.join(output_path, ifl)
-        pf = platform.system()
         if pf == 'Windows':
             gdal_translate = os.path.join(tools_path, 'gdal_translate.exe')
         elif pf == 'Linux':
@@ -529,9 +529,27 @@ def extractLSTDay(base_path, output_path, tools_path, patterns = None, overwrite
         patterns = (modis_patterns['lst_in'], modis_patterns['lst_out'])
     new_files = extractSubset(base_path, output_path, tools_path, patterns,
                               modis_constants['lst_day_spectral_subset'], suffix, overwrite, logger=None)
+    # for f in new_files:
+    #     # copy file to tmp
+    #     tmpfile = os.path.join(output_path, 'tmpfile.tif')
+    #     import shutil
+    #     shutil.copyfile(os.path.join(output_path, f), tmpfile)
+    #     # set projection
+    #     try:
+    #         pf = platform.system()
+    #         if pf == 'Windows':
+    #             gdal_warp = os.path.join(tools_path, 'gdalwarp.exe')
+    #         elif pf == 'Linux':
+    #             gdal_warp = os.path.join(tools_path, 'gdalwarp')
+    #         check_call([gdal_warp, '-t_srs', 'EPSG:4326', '-overwrite', tmpfile, os.path.join(output_path, f)])
+    #     except CalledProcessError as e:
+    #         print("Error in converting to .tif")
+    #         print(e.output)
+    #         raise
+    #     os.remove(tmpfile)
 
 
-#     f_base = filenames[0] #'MOD13Q1'
+        #     f_base = filenames[0] #'MOD13Q1'
 #     ext = filenames[1] #'.hdf'
 #     of_base = output_filenames[0]
 #     of_ext = output_filenames[1]
@@ -564,6 +582,24 @@ def extractLSTNight(base_path, output_path, tools_path, patterns = None, overwri
         patterns = (modis_patterns['lst_in'], modis_patterns['lst_out'])
     new_files = extractSubset(base_path, output_path, tools_path, patterns,
                               modis_constants['lst_night_spectral_subset'], suffix, overwrite, logger=None)
+    # for f in new_files:
+    #     # copy file to tmp
+    #     tmpfile = os.path.join(output_path, 'tmpfile.tif')
+    #     import shutil
+    #     shutil.copyfile(os.path.join(output_path, f), tmpfile)
+    #     # set projection
+    #     try:
+    #         pf = platform.system()
+    #         if pf == 'Windows':
+    #             gdal_warp = os.path.join(tools_path, 'gdalwarp.exe')
+    #         elif pf == 'Linux':
+    #             gdal_warp = os.path.join(tools_path, 'gdalwarp')
+    #         check_call([gdal_warp, '-t_srs', 'EPSG:4326', '-overwrite', tmpfile, os.path.join(output_path, f)])
+    #     except CalledProcessError as e:
+    #         print("Error in converting to .tif")
+    #         print(e.output)
+    #         raise
+    #     os.remove(tmpfile)
 
 #     f_base = filenames[0] #'MOD13Q1'
 #     ext = filenames[1] #'.hdf'
@@ -649,12 +685,13 @@ def calcAverageOfDayNight_os(dayFile, nightFile, avgFile):
     print "calcAverage: ", dayFile, nightFile
     with rasterio.open(dayFile) as day_r:
         profile = day_r.profile.copy()
+#        profile.update(dtype=rasterio.uint32)
         day_a = day_r.read(1, masked=True)
         with rasterio.open(nightFile) as night_r:
             night_a = night_r.read(1, masked=True)
             dst_r = np.mean((day_a, night_a), axis=0)
             with rasterio.open(avgFile, 'w', **profile) as dst:
-                dst.write(dst_r.astype(rasterio.float64), 1)
+                dst.write(dst_r.astype(rasterio.uint16), 1)
 
 def calcAverageOfDayNight_dir(output_dir, dayDir, nightDir, patterns = (None, None)):
     print "calcAverage of Day & Night for directory: ", dayDir, nightDir
@@ -676,7 +713,10 @@ def matchDayNightFiles(dayPath, nightPath, outPath, patterns = (None, None), ope
 #    dayFiles = list(os.listdir(dayPath))
     nightFiles = set(os.listdir(nightPath))
     if patterns[0]:
-        dayFiles = directoryUtils.getMatchingFiles(os.path.dirname(dayPath), patterns[0])
+        if not os.path.isdir(dayPath):
+            dayFiles = directoryUtils.getMatchingFiles(os.path.dirname(dayPath), patterns[0])
+        else:
+            dayFiles = directoryUtils.getMatchingFiles(dayPath, patterns[0])
     else:
         dayFiles = list(os.listdir(dayPath))
     print "Day files: ", dayFiles
