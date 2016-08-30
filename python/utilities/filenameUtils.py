@@ -20,7 +20,7 @@ def _getMonthFromDayOfYear(doy, year):
 def _getDayFromDayOfYear(doy, year, ignore_leap_year = True):
     if calendar.isleap(year) and ignore_leap_year and doy > 60:
         doy = doy-1
-    date = datetime.datetime(year, 1, 1) + datetime.timedelta(doy)
+    date = datetime.datetime(year, 1, 1) + datetime.timedelta(doy-1)
     day = '%s'%date.strftime('%d')
     return day
 
