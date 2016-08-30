@@ -259,7 +259,7 @@ def generateVCIConfig(country, interval, start_date, output):
 
     - process: Analysis
       type: VCI
-      opensource:
+      open_source:
       current_file: {data_dir}/MODIS/MOD13A3/Processed/{country}_EVI/{country_l}_phy_MOD13A3.{year}.{month}.01.005.1_km_monthly_EVI.tif
       EVI_max_file: {evi_max}
       EVI_min_file: {evi_min}
@@ -361,7 +361,7 @@ def generateTCIConfig(country, interval, start_date, output):
 
     - process: Analysis
       type: TCI
-      opensource:
+      open_source:
       current_file: {tci_file}
       LST_max_file: {lst_max}
       LST_min_file: {lst_min}
@@ -403,6 +403,7 @@ def generateVHIConfig(country, interval, start_date, output):
 ## Processing chain begin - Compute Vegetation Health Index
     - process: Analysis
       type: VHI
+      open_source:
       VCI_file: {vci_file}
       TCI_file: {tci_file}
       output_file: {data_dir}/MODIS/Monthly/{country}/VHI/{country_l}_cli_MOD11C3.{year}.{month}.1_km_monthly_EVI_LST_VHI.tif
