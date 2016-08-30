@@ -293,8 +293,8 @@ def generateTCIConfig(country, interval, start_date, output):
             if calendar.isleap(int(year)) and dayofyear > 60:
                 dayofyear = dayofyear + 1
 
-            _input_pattern = '^(?P<product>MOD\d{2}C\d{1}).A(?P<year>\d{4})(?P<dayofyear>\d{3}).(?P<version>\d{3}).(?P<code>.*).(?P<subset>hdf_\d{2})(?P<extension>\.tif$)'
-            _avg_output_pattern = "'{product}.A{year}{dayofyear}.{version}.{code}.avg{extension}'"
+            _input_pattern = '^(?P<product>MOD\d{2}C\d{1}).A(?P<year>\d{4})(?P<dayofyear>\d{3}).(?P<version>\d{3}).(?P<subset>LST_\w+)(?P<extension>\.tif$)'
+            _avg_output_pattern = "'{product}.{year}{dayofyear}.{version}.avg{extension}'"
             if country == 'IDN':
                 _boundary_file = "{0}/01_Data/02_IDN/ShapeFiles/Boundaries/Subset/MODIS/idn_phy_modis_lst_005_grid_diss_a.shp".format(
                     _defaults['base_product_dir'])
