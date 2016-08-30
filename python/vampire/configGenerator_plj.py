@@ -259,6 +259,7 @@ def generateVCIConfig(country, interval, start_date, output):
 
     - process: Analysis
       type: VCI
+      opensource:
       current_file: {data_dir}/MODIS/MOD13A3/Processed/{country}_EVI/{country_l}_phy_MOD13A3.{year}.{month}.01.005.1_km_monthly_EVI.tif
       EVI_max_file: {evi_max}
       EVI_min_file: {evi_min}
@@ -341,7 +342,9 @@ def generateTCIConfig(country, interval, start_date, output):
       output_dir: {data_dir}/MODIS/MOD11C3/Processed/Night
 
     - process: MODIS
-      type: temp_average
+      type: calc_average
+      layer: day_night_temp
+      open_source:
       directory_day: {data_dir}/MODIS/MOD11C3/Processed/Day
       directory_night: {data_dir}/MODIS/MOD11C3/Processed/Night
       directory_output: {data_dir}/MODIS/MOD11C3/Processed/Average
@@ -358,6 +361,7 @@ def generateTCIConfig(country, interval, start_date, output):
 
     - process: Analysis
       type: TCI
+      opensource:
       current_file: {tci_file}
       LST_max_file: {lst_max}
       LST_min_file: {lst_min}
