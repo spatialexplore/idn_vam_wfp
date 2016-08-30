@@ -2,22 +2,27 @@ __author__ = 'rochelle'
 #!/usr/bin/env python
 # Import system modules
 import os
-from subprocess import check_call, CalledProcessError
+from subprocess import call, check_call, check_output, CalledProcessError
 
 import utilities
 
-def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, logger=None):
+def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, nodata=True, logger=None):
     # call gdalwarp to clip to shapefile
     try:
         if logger: logger.debug("%s",shpfile)
         if logger: logger.debug("%s",in_raster)
         if logger: logger.debug("%s",out_raster)
         gdal_exe = os.path.join(gdal_path, 'gdalwarp')
-        check_call([gdal_exe, '-t_srs', 'EPSG:4326', '-srcnodata', '-9999', '-dstnodata', '-9999', '-crop_to_cutline', '-cutline', shpfile, in_raster, out_raster])
+        if nodata:
+            retcode = call([gdal_exe, '-t_srs', 'EPSG:4326', '-dstnodata', '-9999', '-crop_to_cutline', '-cutline', shpfile, in_raster, out_raster])
+        else:
+            retcode = call([gdal_exe, '-overwrite', '-t_srs', 'EPSG:4326', '-crop_to_cutline', '-cutline', shpfile, in_raster, out_raster])
+#            print "gdalwarp -overwrite', '-t_srs', 'EPSG:4326', '-crop_to_cutline', '-cutline' {0}, {1}, {2}".format(shpfile, in_raster, out_raster)
+        if logger: logger.debug("gdalwarp return code is %s", retcode)
     except CalledProcessError as e:
         if logger: logger.error("Error in gdalwarp")
         if logger: logger.error("%s",e.output)
-        raise
+#        raise
     except Exception, e:
         if logger: logger.error("Warning in gdalwarp")
     return 0
@@ -35,7 +40,7 @@ def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, logger=None):
 #     print("successfully clipped rasters")
 #     return 0
 
-def cropFiles(base_path, output_path, bounds, tools_path, patterns = None, overwrite = False, logger = None):
+def cropFiles(base_path, output_path, bounds, tools_path, patterns = None, overwrite = False, nodata=True, logger = None):
 #    import re
     fileslist = []
     if not patterns[0]:
@@ -59,7 +64,7 @@ def cropFiles(base_path, output_path, bounds, tools_path, patterns = None, overw
                 # unzip first
                 utilities.directoryUtils.unzipFile(ifl)
                 ifl = ifl[:-3] # remove .gz from filename
-            clipRasterToShp(bounds, ifl, out_raster, tools_path)
+            clipRasterToShp(shpfile=bounds, in_raster=ifl, out_raster=out_raster, gdal_path=tools_path, nodata=nodata)
             fileslist.append(new_filename)
     return fileslist
 
