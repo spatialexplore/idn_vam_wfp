@@ -40,8 +40,8 @@ from os import path, listdir
 
 from longTermAverage import calcAverage, calcMin, calcMax, calcStDev, calcSum
 from precipitationAnalysis import daysSinceLast
-from python.utilities.directoryUtils import buildFileList
-from python.utilities.ftpUtils import openFTP, closeFTP, getFileFromFTP, getFilesFromFTP
+from utilities.directoryUtils import buildFileList
+from utilities.ftpUtils import openFTP, closeFTP, getFileFromFTP, getFilesFromFTP
 
 ftp_address_CHIRPS = 'chg-ftpout.geog.ucsb.edu'
 logger = logging.getLogger('chirpsUtils')
