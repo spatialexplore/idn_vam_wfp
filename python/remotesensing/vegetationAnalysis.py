@@ -166,7 +166,7 @@ def calcVHI_os(vci_filename, tci_filename, dst_filename):
             newd_f += ((vci_a + tci_a) * 0.5)
             res = newd_f.filled(fill_value=vci_r.nodata)
             res2 = np.ma.masked_where(res == vci_r.nodata, res)
-            profile.update(dtype=rasterio.float64)
+            profile.update(dtype=rasterio.float64, nodata=-9999)
             with rasterio.open(dst_filename, 'w', **profile) as dst:
                 dst.write(res2.astype(rasterio.float64), 1)
     return 0
