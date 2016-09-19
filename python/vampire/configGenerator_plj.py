@@ -293,10 +293,10 @@ def generateTCIConfig(country, interval, start_date, output):
             if calendar.isleap(int(year)) and dayofyear > 60:
                 dayofyear = dayofyear + 1
 
-            _input_pattern = '^(?P<product>MOD\d{2}C\d{1}).A(?P<year>\d{4})(?P<dayofyear>\d{3}).(?P<version>\d{3}).(?P<subset>LST_\w+)(?P<extension>\.tif$)'
+            _input_pattern = '^(?P<product>MOD\d{2}C\d{1}).(?P<year>\d{4})(?P<dayofyear>\d{3}).(?P<version>\d{3}).(?P<subset>LST_\w+)(?P<extension>\.tif$)'
             _avg_output_pattern = "'{product}.{year}{dayofyear}.{version}.avg{extension}'"
             if country == 'IDN':
-                _boundary_file = "{0}/01_Data/02_IDN/ShapeFiles/Boundaries/Subset/MODIS/idn_phy_modis_lst_005_grid_diss_a.shp".format(
+                _boundary_file = "{0}/01_Data/02_IDN/ShapeFiles/Boundaries/Subset/MODIS/idn_bnd_subset_modis_lst_005_grid_diss_a.shp".format(
                     _defaults['base_product_dir'])
                 _output_pattern = 'idn_cli_{product}.{year}{dayofyear}.{version}{extension}'
                 _LST_max_file = '{0}/01_Data/02_IDN/Rasters/Climate/Temperature/MODIS/MOD11C3/Statistics_byMonth' \
@@ -308,7 +308,7 @@ def generateTCIConfig(country, interval, start_date, output):
                                                         .format(year, str(dayofyear).zfill(3)))
             else:
 
-                _boundary_file = "{0}/01_Data/03_Regional/{1}/ShapeFiles/Boundaries/Subset/MODIS/{2}_phy_modis_lst_005_grid_diss_a.shp".format(
+                _boundary_file = "{0}/01_Data/03_Regional/{1}/ShapeFiles/Boundaries/Subset/MODIS/{2}_bnd_subset_modis_lst_005_grid_diss_a.shp".format(
                     _defaults['base_product_dir'], country, country.lower())
                 _output_pattern = "'{0}".format(country.lower()) + "_cli_{product}.{year}.{month}.{day}.{version}{extension}'"
                 _LST_max_file = '{0}/01_Data/03_Regional/{1}/Rasters/Climate/Temperature/MODIS/MOD11C3/Statistics_byMonth' \
