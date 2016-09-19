@@ -4,7 +4,9 @@ __author__ = 'rochelle'
 import gdal, osr
 import numpy as np
 import rasterio
+from rasterio.warp import reproject, RESAMPLING
 import urllib2
+import rasterUtils
 
 def calcTCI(cur_filename, lta_max_filename, lta_min_filename, dst_filename):
     # calculate Temperature Condition Index
@@ -112,10 +114,52 @@ def calcVHI_os(vci_filename, tci_filename, dst_filename):
     # VHI = 0.5 x (VCI + TCI)
     with rasterio.open(vci_filename) as vci_r:
         vci_a = vci_r.read(1, masked=True)
-        profile = vci_r.profile.copy()
         print vci_r.nodatavals
         with rasterio.open(tci_filename) as tci_r:
             tci_a = tci_r.read(1, masked=True)
+            profile = tci_r.profile.copy()
+            # check that resolution of vci matches resolution of tci
+            print vci_a.shape
+            print tci_a.shape
+            if vci_a.shape[0] > tci_a.shape[0] or vci_a.shape[1] > tci_a.shape[1]:
+                # resample vci
+                newarr = np.empty(shape=(tci_a.shape[0], tci_a.shape[1]))
+                # adjust the new affine transform to the smaller cell size
+                aff = vci_r.transform
+                newaff = rasterio.Affine(aff[0] / (float(tci_a.shape[0]) / float(vci_a.shape[0])), aff[1], aff[2],
+                                aff[3], aff[4] / (float(tci_a.shape[1]) / float(vci_a.shape[1])), aff[5])
+
+                try:
+                    reproject(
+                        vci_a, newarr,
+                        src_transform=aff,
+                        dst_transform=newaff,
+                        src_crs=vci_r.crs,
+                        dst_crs=vci_r.crs,
+                        resampling=RESAMPLING.bilinear)
+                except Exception, e:
+                    print "Error in reproject "
+                vci_a = np.ma.masked_where(np.ma.getmask(tci_a), newarr)
+#                rasterUtils.resampleRaster(vci_filename, tmp_filename, gdal_path, tci_a.shape[0], tci_a.shape[1])
+            elif tci_a.shape[0] > vci_a.shape[0] or tci_a.shape[1] > tci_a.shape[1]:
+                # resample tci
+                newarr = np.empty(shape=(vci_a.shape[0], vci_a.shape[1]))
+                # adjust the new affine transform to the smaller cell size
+                aff = tci_a.transform
+                newaff = rasterio.Affine(aff.a / (vci_a.shape[0] / tci_a.shape[0]), aff.b, aff.c,
+                                         aff.d, aff.e / (vci_a.shape[1] / tci_a.shape[1]), aff.f)
+                try:
+                    reproject(
+                        tci_a, newarr,
+                        src_transform=aff,
+                        dst_transform=newaff,
+                        src_crs=tci_a.crs,
+                        dst_crs=tci_a.crs,
+                        resample=RESAMPLING.bilinear)
+                except Exception, e:
+                    print "Error in reproject "
+                tci_a = np.ma.masked_where(np.ma.getmask(vci_a), newarr)
+
             dst_f = np.zeros(vci_a.shape)
             newd_f = np.ma.masked_where(np.ma.mask_or(np.ma.getmask(vci_a), np.ma.getmask(tci_a)),
                                         dst_f)
