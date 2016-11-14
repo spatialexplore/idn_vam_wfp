@@ -31,6 +31,8 @@ modis_patterns = {
     'mosaic_in' : '^(?P<product>MOD\d{2}A\d{1}).A(?P<year>\d{4})(?P<dayofyear>\d{3}).(?P<tile>h\d{2}v\d{2}).(?P<version>\d{3})?.*.(?P<extension>\.hdf$)',
         #'^(?P<product>MOD\d{2}A\d{1}).A(?P<year>\d{4})(?P<dayofyear>\d{3}).(?P<version>\d{3})(?P<extension>\.hdf$)',
     'mosaic_out' : '{product}.{year}.{month}.{day}.{version}{extension}',
+    'reproject_in' : '^(?P<product>MOD\d{2}A\d{1}).(?P<year>\d{4}).(?P<month>\d{2}).(?P<day>\d{2}).(?P<version>\d{3})(?P<extension>\.hdf$)',
+    'reproject_out' : '{product}.{year}.{month}.{day}.{version}{extension}',
 #    'mosaic_out': '^(?P<product>MOD\d{2}A\d{1}).(?P<year>\d{4})(?P<dayofyear>\d{3})_(?P<version>\d{3})?.*.(?P<extension>\.tif$)',
     'evi_in': '^(?P<product>MOD\d{2}A\d{1}).(?P<year>\d{4}).(?P<month>\d{2}).(?P<day>\d{2}).(?P<version>\d{3})(?P<extension>\.hdf$)',
     'evi_out' : '{product}.{year}.{month}.{day}.{version}.tif',
@@ -164,8 +166,20 @@ def mosaicTiles(files, output_dir, tools_dir="", overwrite = False, subset=[1,1,
     #             pfile.write('"' + f + '"\n')
     #         pfile.close()
     new_filename = filenameUtils.generateOutputFilename(os.path.basename(files[0]), modis_patterns['mosaic_in'], modis_patterns['mosaic_out'])
+
     if not os.path.exists(os.path.normpath(os.path.join(output_dir, new_filename))) or overwrite == True:
         mosaicFiles(os.path.normpath(filelist), os.path.normpath(os.path.join(output_dir, new_filename)), os.path.normpath(mrtpath))
+
+        # reproject mosaic to GEO projection
+        param_file = os.path.join(output_dir, os.path.basename(new_filename) + ".prm")
+        outputname = os.path.join(output_dir, '{0}_r{1}'.format(os.path.basename(new_filename), os.path.splitext(new_filename)[1]))
+        generateParamFile(output_dir, param_file, os.path.normpath(os.path.join(output_dir, new_filename)), outputname)
+        reprojectMosaic(param_file, os.path.normpath(mrtpath))
+        # remove temp file
+        os.remove(os.path.normpath(os.path.join(output_dir, new_filename)))
+        os.rename(outputname, os.path.normpath(os.path.join(output_dir, new_filename)))
+        os.remove(param_file)
+
 #    mosaicFiles(os.path.normpath(filelist), os.path.normpath(os.path.join(output_dir, output_prefix + 'mosaic.hdf')), os.path.normpath(mrtpath))
 #        mosaic = createMosaic(filelist, output_prefix + 'mosaic', mrtpath, [1,1,0,0,0,0,0,0,0,0,0])
 #        orig_dir = os.getcwd()
@@ -232,10 +246,29 @@ def tranformToWGS84(base_path, output_path, tools_path, filenames = ('MOD13Q1', 
 
     return 0
 
+def reprojectMODISFile(base_path, outWks, patterns, toolDir):
+    # reproject mosaic to GEO projection
+    if not patterns:
+        patterns = (modis_patterns['reproject_in'], modis_patterns['reproject_out'])
+    _all_files = directoryUtils.getMatchingFiles(base_path, patterns[0])
+    if not _all_files:
+        print 'No files found in ' + base_path + ', please check directory and try again'
+        return -1
+    for f in _all_files:
+        param_file = os.path.join(outWks, os.path.basename(f) + ".prm")
+        outputname = os.path.join(outWks, '{0}_r{1}'.format(os.path.basename(f), os.path.splitext(f)[1]))
+        generateParamFile(outWks, param_file, f, outputname)
+        reprojectMosaic(param_file, os.path.normpath(toolDir))
+        # remove temp file
+        os.remove(os.path.normpath(os.path.join(outWks, f)))
+        os.rename(outputname, os.path.normpath(os.path.join(outWks, f)))
+        os.remove(param_file)
+
+
 def reprojectMosaic(param_file, tools_path, overwrite = False):
     # call resample using parameter file
     try:
-        check_call([tools_path + 'resample', '-p', param_file])
+        check_call([os.path.join(tools_path,'resample'), '-p', param_file])
     except CalledProcessError as e:
         print("Error in resample")
         print(e.output)
