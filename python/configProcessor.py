@@ -101,6 +101,42 @@ def __processMODIS(process, cfg):
 
         modisUtils.getMODISDataFromURL(outWks, product, tiles, dates, mosaic_dir, toolDir, logger)
 
+    elif process['type'] == 'reproject':
+        logger.debug("Reproject MODIS data")
+
+        try:
+            inWks = process['input_dir']
+        except Exception, e:
+            __configFileError("No input directory 'input_dir' set.", e)
+            raise
+        try:
+            outWks = process['output_dir']
+        except Exception, e:
+            __configFileError("No output directory 'output_dir' set.", e)
+            raise
+        if 'file_pattern' in process:
+            pattern = process['file_pattern']
+        else:
+            pattern = None #r'^(?P<datestamp>\d{4}[.]\d{2}[.]\d{2})?.*'
+        if 'output_pattern' in process:
+            out_pattern = process['output_pattern']
+        else:
+            out_pattern = None #r'{prefix}.{datestamp}_005{ext}'
+        if pattern == None or out_pattern == None:
+            patterns = None
+        else:
+            patterns = (pattern, out_pattern)
+        toolDir = None
+        if 'MRT_dir' in process:
+            toolDir = process['MRT_dir']
+        elif 'directory' in cfg:
+            try:
+                toolDir = cfg['directory']['MRT']
+            except Exception, e:
+                __configFileError("MRT directory", e)
+                raise
+        modisUtils.reprojectMODISFile(inWks, outWks, patterns, toolDir)
+
     elif process['type'] == 'extract':
         logger.debug("Extract layer from MODIS data")
         try:
@@ -162,8 +198,16 @@ def __processMODIS(process, cfg):
                 open_src = False
                 if 'open_source' in process:
                     open_src = True
+                if 'GDAL_dir' in process:
+                    toolDir = process['GDAL_dir']
+                elif 'directory' in cfg:
+                    try:
+                        toolDir = cfg['directory']['GDAL']
+                    except Exception, e:
+                        __configFileError("GDAL directory", e)
+                        raise
 
-                modisUtils.matchDayNightFiles(day_dir, night_dir, output_dir, patterns, open_src)
+                modisUtils.matchDayNightFiles(day_dir, night_dir, output_dir, patterns, open_src, toolDir)
     return 0
 
 def __processAnalysis(process, cfg):
@@ -211,9 +255,17 @@ def __processAnalysis(process, cfg):
         except Exception, e:
             __configFileError("No output file 'output_file' specified.", e)
             raise
+        if 'GDAL_dir' in process:
+            toolDir = process['GDAL_dir']
+        elif 'directory' in cfg:
+            try:
+                toolDir = cfg['directory']['GDAL']
+            except Exception, e:
+                __configFileError("GDAL directory", e)
+                raise
 
         if 'open_source' in process:
-            vegetationAnalysis.calcVCI_os(cur_file, evi_max_file, evi_min_file, out_file)
+            vegetationAnalysis.calcVCI_os(cur_file, evi_max_file, evi_min_file, out_file, toolDir)
         else:
             vegetationAnalysis.calcVCI(cur_file, evi_max_file, evi_min_file, out_file)
 
@@ -239,9 +291,18 @@ def __processAnalysis(process, cfg):
         except Exception, e:
             __configFileError("No output file 'output_file' specified.", e)
             raise
+        if 'GDAL_dir' in process:
+            toolDir = process['GDAL_dir']
+        elif 'directory' in cfg:
+            try:
+                toolDir = cfg['directory']['GDAL']
+            except Exception, e:
+                __configFileError("GDAL directory", e)
+                raise
 
         if 'open_source' in process:
-            vegetationAnalysis.calcTCI_os(cur_file, lst_max_file, lst_min_file, out_file)
+#            vegetationAnalysis.calcTCI_gdal_calculations(cur_file, lst_max_file, lst_min_file, out_file)
+            vegetationAnalysis.calcTCI_os(cur_file, lst_max_file, lst_min_file, out_file, toolDir)
         else:
             vegetationAnalysis.calcTCI(cur_file, lst_max_file, lst_min_file, out_file)
 
@@ -262,9 +323,14 @@ def __processAnalysis(process, cfg):
         except Exception, e:
             __configFileError("No output file 'output_file' specified.", e)
             raise
+        try:
+            gdal_path = cfg['directory']['GDAL']
+        except Exception, e:
+            __configFileError("No GDAL directory set. Using {0}".format(gdal_path), e)
+            raise
 
         if 'open_source' in process:
-            vegetationAnalysis.calcVHI_os(vci_file, tci_file, out_file)
+            vegetationAnalysis.calcVHI_os(vci_file, tci_file, out_file, None, gdal_path)
         else:
             vegetationAnalysis.calcVHI(vci_file, tci_file, out_file)
 
@@ -291,7 +357,12 @@ def __processRaster(process, cfg):
             patterns = None
         else:
             patterns = (pattern, out_pattern)
-
+        overwrite = False
+        if 'overwrite' in process:
+            overwrite = True
+        nodata = True
+        if 'no_nodata' in process:
+            nodata = False
         try:
             inWks = process['input_dir']
         except Exception, e:
@@ -307,7 +378,52 @@ def __processRaster(process, cfg):
         except Exception, e:
             __configFileError("No boundary file specified." ,e)
             raise
-        rasterUtils.cropFiles(inWks, outWks, boundFile, toolDir, patterns)
+        rasterUtils.cropFiles(base_path=inWks, output_path=outWks, bounds=boundFile, tools_path=toolDir,
+                              patterns=patterns, nodata=nodata, overwrite=overwrite)
+    elif process['type'] == 'resample':
+        logger.debug("resample raster")
+        try:
+            gdal = cfg['directory']['GDAL']
+        except Exception, e:
+            __configFileError("No GDAL directory set. Using {0}".format(gdal), e)
+            raise
+        try:
+            inWks = process['input_file']
+        except Exception, e:
+            __configFileError("No input file 'input_file' set.", e)
+            raise
+        try:
+            outWks = process['output_file']
+        except Exception, e:
+            __configFileError("No output file 'output_file' set.", e)
+            raise
+        outX = None
+        if 'output_X_pc' in process:
+            outX = process['output_X_pc']
+        outY = None
+        if 'output_Y_pc' in process:
+            outY = process['output_Y_pc']
+        tr_X = None
+        if 'tr_X' in process:
+            tr_X = process['tr_X']
+        tr_Y = None
+        if 'tr_Y' in process:
+            tr_Y = process['tr_Y']
+        src_nodata = None
+        if 'src_nodata' in process:
+            src_nodata = process['src_nodata']
+        dst_nodata = None
+        if 'dst_nodata' in process:
+            dst_nodata = process['dst_nodata']
+
+        opensrc = False
+        if 'open_source' in process:
+            opensrc = True
+
+        if opensrc:
+            rasterUtils.resampleRaster(in_raster=inWks, out_raster=outWks, gdal_path=gdal,
+                                       outX_pc=outX, outY_pc=outY, trX=tr_X, trY=tr_Y,
+                                       src_nodata=src_nodata, dst_nodata=dst_nodata)
     return 0
 
 
