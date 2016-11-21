@@ -21,7 +21,9 @@ from utilities import directoryUtils
 #from directoryUtils import buildFileList
 from longTermAverage import calcAverage, calcMin, calcMax, calcStDev
 from utilities import filenameUtils
+import rasterUtils
 #from directoryUtils import getNewFilename
+import gdal_calculations
 
     # MOD11C3.A2016092.005.2016122120501.hdf
 
@@ -275,15 +277,23 @@ def reprojectMosaic(param_file, tools_path, overwrite = False):
         raise
     return 0
 
-def convertToTiff(ifl, ofl, tools_path, overwrite = False):
+def convertToTiff(ifl, ofl, tools_path, nodata=None, overwrite = False):
     pf = platform.system()
+    options = []
     try:
 #        ofl = os.path.join(output_path, ifl)
         if pf == 'Windows':
             gdal_translate = os.path.join(tools_path, 'gdal_translate.exe')
         elif pf == 'Linux':
             gdal_translate = os.path.join(tools_path, 'gdal_translate')
-        check_call([gdal_translate, '-sds', ifl, ofl])
+        options.append(gdal_translate)
+        options.append('-sds')
+        if nodata:
+            options.append('-a_nodata')
+            options.append('{0}'.format(nodata))
+        options.append(ifl)
+        options.append(ofl)
+        check_call(options)
     except CalledProcessError as e:
         print("Error in converting to .tif")
         print(e.output)
@@ -473,7 +483,7 @@ def extractEVI(base_path, output_path, tools_path,
     if not patterns:
         patterns = (modis_patterns['evi_in'], modis_patterns['evi_out'])
     new_files = extractSubset(base_path, output_path, tools_path, patterns,
-                              modis_constants['evi_spectral_subset'], suffix, overwrite, logger)
+                              modis_constants['evi_spectral_subset'], suffix, overwrite, -9999, logger)
     return new_files
 
 # def extractEVI(base_path, output_path, tools_path, filenames = ('MOD13Q1', '.hdf'), output_filenames = ('idn_phy_MOD13Q1', '.tif'),
@@ -503,7 +513,7 @@ def extractEVI(base_path, output_path, tools_path,
 #     return 0
 
 def extractSubset(base_path, output_path, tools_path,
-                  patterns, subset, subset_name, overwrite = False, logger = None):
+                  patterns, subset, subset_name, overwrite = False, nodata=None, logger = None):
     _all_files = directoryUtils.getMatchingFiles(base_path, patterns[0])
     if not _all_files:
         print 'No files found in ' + base_path + ', please check directory and try again'
@@ -526,7 +536,7 @@ def extractSubset(base_path, output_path, tools_path,
             if logger: logger.debug("Number of bands: %s",src_ds.RasterCount)
 #            generateParamFile(base_path, _pfl, _ifl, _ofl, _params)
 #            reprojectMosaic(_pfl, tools_path)
-            convertToTiff(_ifl, _ofl, tools_path)
+            convertToTiff(_ifl, _ofl, tools_path, nodata)
 #            ss = [1]
             for idx, sbs in enumerate(sds): #range(src_ds.RasterCount):
                 if logger: logger.debug("Subdataset: %s", sbs[0])
@@ -534,7 +544,9 @@ def extractSubset(base_path, output_path, tools_path,
                 _n = (sbs[0].rsplit(':', 1)[1]).replace(' ', '_')
 #                _n = _n.replace(' ', '_')
                 _rf = "{0}.{1}{2}".format(os.path.splitext(os.path.basename(_ofl))[0], _n, os.path.splitext(_ofl)[1])
-                _cf = "{0}_{1}{2}".format(os.path.splitext(os.path.basename(_ofl))[0], str(idx+1).zfill(2), os.path.splitext(_ofl)[1])
+#                _cf = "{0}_{1}{2}".format(os.path.splitext(os.path.basename(_ofl))[0], str(idx+1).zfill(2), os.path.splitext(_ofl)[1])
+                # GDAL 1.10
+                _cf = "{0}{1}{2}".format(os.path.splitext(os.path.basename(_ofl))[0], os.path.splitext(_ofl)[1], str(idx+1).zfill(1))
                 if not os.path.exists(os.path.join(output_path, _cf)):
                     _cf = "{0}_{1}{2}".format(os.path.splitext(os.path.basename(_ofl))[0], str(idx+1), os.path.splitext(_ofl)[1])
                 if idx+1 not in subset:
@@ -714,17 +726,35 @@ def calcAverageOfDayNight(dayFile, nightFile, avgFile):
     print "saved avg in: ", avgFile
     return 0
 
-def calcAverageOfDayNight_os(dayFile, nightFile, avgFile):
+def calcAverageOfDayNight_gdal(dayFile, nightFile, avgFile):
+    gdal_calculations.Env.resampling = 'BILINEAR'
+    gdal_calculations.Env.reproject = True
+    gdal_calculations.Env.overwrite = True
+    gdal_calculations.Env.nodata = True
+    gdal.UseExceptions()
+    ds1 = gdal_calculations.Dataset(dayFile)
+    ds2 = gdal_calculations.Dataset(nightFile)
+    avg = (ds1 + ds2) / 2
+#    avg.SetNoDataValue(-9999)
+    avg.save(avgFile)
+    return 0
+
+def calcAverageOfDayNight_os(dayFile, nightFile, avgFile, gdal_path):
     print "calcAverage: ", dayFile, nightFile
+    dst_filename = "{0}.tmp{1}".format(os.path.splitext(avgFile)[0], os.path.splitext(avgFile)[1])
     with rasterio.open(dayFile) as day_r:
         profile = day_r.profile.copy()
 #        profile.update(dtype=rasterio.uint32)
-        day_a = day_r.read(1, masked=True)
+        profile.update(NoData=0)
+        day_a = day_r.read(1, masked=False)
         with rasterio.open(nightFile) as night_r:
-            night_a = night_r.read(1, masked=True)
-            dst_r = np.mean((day_a, night_a), axis=0)
-            with rasterio.open(avgFile, 'w', **profile) as dst:
-                dst.write(dst_r.astype(rasterio.uint16), 1)
+            night_a = night_r.read(1, masked=False)
+            dst_r2 = np.where(np.logical_and(day_a==0, night_a==0), 0,
+                              np.where(night_a==0, day_a,
+                                       np.where(day_a==0, night_a, (day_a + night_a)/2)))
+            with rasterio.open(dst_filename, 'w', **profile) as dst:
+                dst.write(dst_r2.astype(rasterio.uint16), 1)
+            rasterUtils.setRasterNoDataValues(dst_filename, avgFile, gdal_path, -9999, None, 'Int32', True)
 
 def calcAverageOfDayNight_dir(output_dir, dayDir, nightDir, patterns = (None, None)):
     print "calcAverage of Day & Night for directory: ", dayDir, nightDir
@@ -742,7 +772,7 @@ def calcAverageOfDayNight_dir(output_dir, dayDir, nightDir, patterns = (None, No
     return 0
 
 
-def matchDayNightFiles(dayPath, nightPath, outPath, patterns = (None, None), open_src = False):
+def matchDayNightFiles(dayPath, nightPath, outPath, patterns = (None, None), open_src = False, gdal_path=None):
 #    dayFiles = list(os.listdir(dayPath))
     nightFiles = set(os.listdir(nightPath))
     if patterns[0]:
@@ -766,7 +796,8 @@ def matchDayNightFiles(dayPath, nightPath, outPath, patterns = (None, None), ope
                 dp = os.path.join(dayPath, d_fl+ext)
                 np = os.path.join(nightPath, n_fl)
                 if open_src:
-                    calcAverageOfDayNight_os(dp, np, avg_fl)
+#                    calcAverageOfDayNight_gdal(dp, np, avg_fl)
+                    calcAverageOfDayNight_os(dp, np, avg_fl, gdal_path)
                 else:
                     calcAverageOfDayNight(dp, np, avg_fl)
     return 0
