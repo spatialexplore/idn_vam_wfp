@@ -6,7 +6,7 @@ from subprocess import call, check_call, check_output, CalledProcessError
 
 import utilities
 
-def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, nodata=True, logger=None):
+def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, nodata=False, logger=None):
     # call gdalwarp to clip to shapefile
     try:
         if logger: logger.debug("%s",shpfile)
@@ -14,7 +14,7 @@ def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, nodata=True, logg
         if logger: logger.debug("%s",out_raster)
         gdal_exe = os.path.join(gdal_path, 'gdalwarp')
         if nodata:
-            retcode = call([gdal_exe, '-t_srs', 'EPSG:4326', '-dstnodata', '-9999', '-crop_to_cutline', '-cutline', shpfile, in_raster, out_raster])
+            retcode = call([gdal_exe, '-overwrite', '-t_srs', 'EPSG:4326', '-dstnodata', '-9999', '-crop_to_cutline', '-cutline', shpfile, in_raster, out_raster])
         else:
             retcode = call([gdal_exe, '-overwrite', '-t_srs', 'EPSG:4326', '-crop_to_cutline', '-cutline', shpfile, in_raster, out_raster])
 #            print "gdalwarp -overwrite', '-t_srs', 'EPSG:4326', '-crop_to_cutline', '-cutline' {0}, {1}, {2}".format(shpfile, in_raster, out_raster)
@@ -68,5 +68,95 @@ def cropFiles(base_path, output_path, bounds, tools_path, patterns = None, overw
             fileslist.append(new_filename)
     return fileslist
 
-def rasterToNPArray(rasterName):
+def resampleRaster(in_raster, out_raster, gdal_path,
+                   outX_pc=None, outY_pc=None, trX=None, trY=None,
+                   src_nodata=None, dst_nodata=None, logger=None):
+    try:
+        if logger: logger.debug("%s", in_raster)
+        if logger: logger.debug("%s", out_raster)
+        gdal_exe = os.path.join(gdal_path, 'gdalwarp')
+        options = [gdal_exe]
+
+        # output size (percentage) specified
+        if outX_pc:
+            options.append('-outsize')
+            options.append("{0}%".format(outX_pc))
+            if outY_pc:
+                options.append("{0}%".format(outY_pc))
+            else:
+                options.append("100.0%")
+        elif outY_pc:
+            options.append('-outsize')
+            options.append("100%")
+            options.append("{0}%".format(outY_pc))
+
+        # target resolution specified
+        if trX:
+            options.append('-r')
+            options.append('bilinear')
+            options.append('-tr')
+            options.append('{0}'.format(trX))
+            if trY:
+                options.append('{0}'.format(trY))
+            else:
+                options.append('{0}'.format(trX))
+        elif trY:
+            options.append('-r')
+            options.append('bilinear')
+            options.append('-tr')
+            options.append('{0}'.format(trY))
+            options.append('{0}'.format(trY))
+
+        # no data specified
+        if src_nodata:
+            options.append('-srcnodata')
+            options.append('{0}'.format(src_nodata))
+        if dst_nodata:
+            options.append('-dstnodata')
+            options.append('{0}'.format(dst_nodata))
+
+        options.append(in_raster)
+        options.append(out_raster)
+        retcode = call(options)
+#        [gdal_exe, '-outsize', xPc, yPc, '-r', 'bilinear', in_raster,
+#         out_raster])
+        if logger: logger.debug("gdalwarp return code is %s", retcode)
+    except CalledProcessError as e:
+        if logger: logger.error("Error in gdalwarp")
+        if logger: logger.error("%s", e.output)
+        #        raise
+    except Exception, e:
+        if logger: logger.error("Warning in gdalwarp")
+
+    return 0
+
+def setRasterNoDataValues(in_raster, out_raster, gdal_path, dst_nodata=None, src_nodata=None,
+                          output_type = None, overwrite=False, logger=None):
+    try:
+        if logger: logger.debug("%s", in_raster)
+        if logger: logger.debug("%s", out_raster)
+        gdal_exe = os.path.join(gdal_path, 'gdalwarp')
+        options = [gdal_exe]
+        if src_nodata:
+            options.append('-srcnodata')
+            options.append("{0}".format(src_nodata))
+        if dst_nodata:
+            options.append('-dstnodata')
+            options.append("{0}".format(dst_nodata))
+        if overwrite:
+            options.append('-overwrite')
+        if output_type:
+            options.append('-ot')
+            options.append(output_type)
+        options.append(in_raster)
+        options.append(out_raster)
+        retcode = call(options)
+        if logger: logger.debug("gdalwarp return code is %s", retcode)
+    except CalledProcessError as e:
+        if logger: logger.error("Error in gdalwarp")
+        if logger: logger.error("%s", e.output)
+        #        raise
+    except Exception, e:
+        if logger: logger.error("Warning in gdalwarp")
+
     return 0
