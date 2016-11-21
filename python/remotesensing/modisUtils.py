@@ -138,16 +138,6 @@ def getMODISDataFromURL(output_dir, product, tiles, dates, mosaic_dir,
 
 def mosaicTiles(files, output_dir, tools_dir="", overwrite = False, subset=[1,1,0,0,0,0,0,0,0,0,0], ofmt='HDF4Image',
                 gdal=False, logger = None):
-#    from pymodis.convertmodis_gdal import createMosaicGDAL
-#    from pymodis.convertmodis import createMosaic
-#    # NDVI, EVI
-#    if gdal:
-#        mosaic = createMosaicGDAL(hdfnames=files, subset=subset, outformat=ofmt)
-#        ofn = os.path.basename(output_prefix + 'mosaic.hdf')
-#        output_file = os.path.join(output_dir, ofn)
-#        print "mosaic ", files, ", output: ", output_file
-#        mosaic.run(output_file)
-#    else:
     # use MRTools
     if tools_dir:
         mrtpath = tools_dir
@@ -155,18 +145,6 @@ def mosaicTiles(files, output_dir, tools_dir="", overwrite = False, subset=[1,1,
         mrtpath = "c:\\MODIS\\bin\\"
     filelist = os.path.join(output_dir, "file_list.txt")
     writeMosaicList(filelist, files)
-    # try:
-    #     pfile = open(filelist, 'w')
-    # except IOError as e:
-    #     if e.errno == errno.EACCES:
-    #         return "Couldn't write list of files"
-    #     # Not a permission error.
-    #     raise
-    # else:
-    #     with pfile:
-    #         for f in files:
-    #             pfile.write('"' + f + '"\n')
-    #         pfile.close()
     new_filename = filenameUtils.generateOutputFilename(os.path.basename(files[0]), modis_patterns['mosaic_in'], modis_patterns['mosaic_out'])
 
     if not os.path.exists(os.path.normpath(os.path.join(output_dir, new_filename))) or overwrite == True:
@@ -182,14 +160,7 @@ def mosaicTiles(files, output_dir, tools_dir="", overwrite = False, subset=[1,1,
         os.rename(outputname, os.path.normpath(os.path.join(output_dir, new_filename)))
         os.remove(param_file)
 
-#    mosaicFiles(os.path.normpath(filelist), os.path.normpath(os.path.join(output_dir, output_prefix + 'mosaic.hdf')), os.path.normpath(mrtpath))
-#        mosaic = createMosaic(filelist, output_prefix + 'mosaic', mrtpath, [1,1,0,0,0,0,0,0,0,0,0])
-#        orig_dir = os.getcwd()
-#        print "original directory: ", orig_dir
-#        os.chdir(output_dir)
-#        mosaic.run()
     os.remove(filelist)
-#        os.chdir(orig_dir)
     if logger: logger.debug("finished mosaic")
     return new_filename
 
@@ -332,70 +303,6 @@ def writeMosaicList(fname, files = []):
                 pfile.close()
     return 0
 
-# def cropMODIS(base_path, output_path, bounds, tools_path,
-#               patterns = (modis_patterns['crop_in'], modis_patterns['crop_out']),
-#               overwrite = False, logger = None):
-#     import re
-#     fileslist = []
-#     if not patterns[0]:
-#         # if no pattern, try all files
-#         _p = '*'
-#     else:
-#         _p = patterns[0]
-#
-#     _all_files = directoryUtils.getMatchingFiles(base_path, _p)
-#
-#     for ifl in _all_files:
-#         _f= os.path.basename(os.path.basename(ifl))
-#         m = re.match(_p, _f)
-#         new_filename = filenameUtils.generateOutputFilename(_f, _p, patterns[1])
-#         out_raster = os.path.join(output_path, new_filename)
-#
-#         if not os.path.exists(out_raster) or overwrite == True:
-#             # crop file here
-#             if logger: logger.debug("Cropping file: %s",ifl)
-#             clipRasterToShp(bounds, ifl, out_raster, tools_path)
-#             fileslist.append(new_filename)
-#     return fileslist
-
-# def cropMODIS(base_path, output_path, bounds, tools_path, filenames = ('MOD13Q1', '.hdf'), output_filenames = ('idn_phy_MOD13Q1.005', '.hdf'),
-#               patterns = (r'^(?P<mod_prefix>MOD\d{2}.\d{1}).(?P<datestamp>\d{4}[.]\d{2}[.]\d{2})(?P<suffix>.*)', r'{prefix}{mod_prefix}.{datestamp}{suffix}'),
-#               overwrite = False):
-#     import re
-#     f_base = filenames[0] #'MOD13Q1'
-#     ext = filenames[1] #'.hdf'
-#     of_base = output_filenames[0]
-#     of_ext = output_filenames[1]
-#     if patterns[0]:
-#         all_files = directoryUtils.getMatchingFiles(base_path, patterns[0])
-#     else:
-#         all_files = directoryUtils.buildFileList(base_path, ext)
-#     pfl = os.path.join(base_path, f_base + ".prm")
-#     for ifl in all_files:
-#         # only process files with correct extension
-#         if ifl.endswith(ext):
-#             fn = os.path.splitext(os.path.basename(ifl))
-# #            out_raster = os.path.join(output_path, '{0}{1}{2}'.format(of_base, fn[0], of_ext))
-#             f= os.path.basename(os.path.basename(ifl))
-#             m = re.match(patterns[0], f)
-#             new_filename = re.sub(patterns[0],
-#                      lambda match: patterns[1].format(
-#                          prefix = of_base,
-#                          mod_prefix = match.group('mod_prefix'),
-#                          datestamp = match.group('datestamp'),
-#                          suffix = match.group('suffix'))
-#                      if match.group('datestamp') else f, f)
-#
-#             out_raster = os.path.join(output_path, new_filename)
-#
-# #            out_raster = os.path.join(output_path, directoryUtils.getNewFilename(os.path.basename(ifl), of_base, of_ext, patterns[0], patterns[1]))
-#             if not os.path.exists(out_raster) or overwrite == True:
-#                 # crop file here
-#                 print "Cropping file: " + ifl
-#                 clipRasterToShp(bounds, ifl, out_raster, tools_path)
-#     return 0
-
-
 # Mosaic all files with same date/day of year in the directory dname
 def mosaicMODIS(base_path, output_path, tools_path, work_path, filenames = ('MOD13Q1', '.hdf')):
     f_base = filenames[0] #'MOD13Q1'
@@ -433,50 +340,9 @@ def extractNDVI(base_path, output_path, tools_path,
         patterns = (modis_patterns['ndvi_in'], modis_patterns['ndvi_out'])
     new_files = extractSubset(base_path, output_path, tools_path, patterns,
                               modis_constants['ndvi_spectral_subset'], suffix, overwrite, logger)
-    # _all_files = directoryUtils.getMatchingFiles(base_path, patterns[0])
-    # new_files = []
-    # if not _all_files:
-    #     print 'No files found in ' + base_path + ', please check directory and try again'
-    #     return -1
-    # _pfl = os.path.join(base_path, 'fileslist' + ".prm")
-    # for _ifl in _all_files:
-    #     # generate parameter file
-    #     _params = [modis_constants['ndvi_spectral_subset']]
-    #     _nfl = filenameUtils.generateOutputFilename(_ifl, patterns[0], patterns[1])
-    #     _ofl = os.path.join(output_path, _nfl)
-    #     _checkfl = "{0}.{1}{2}".format(os.path.splitext(_ofl)[0], suffix, os.path.splitext(_ofl)[1])
-    #     if not os.path.exists(_checkfl) or overwrite == True:
-    #         generateParamFile(base_path, _pfl, _ifl, _ofl, _params)
-    #         reprojectMosaic(_pfl, tools_path)
-    #         new_files.append(_ofl)
     return new_files
 
 
-# def extractNDVI(base_path, output_path, tools_path, filenames = ('MOD13Q1', '.hdf'), output_filenames = ('idn_phy_MOD13Q1', '.tif'),
-#                 patterns = (r'^(?P<datestamp>\d{4}[.]\d{2}[.]\d{2})?.*', r'{prefix}.{datestamp}_005{ext}'),
-#                 overwrite = False, suffix = '1_km_monthly_NDVI'):
-#     f_base = filenames[0] #'MOD13Q1'
-#     ext = filenames[1] #'.hdf'
-#     of_base = output_filenames[0]
-#     of_ext = output_filenames[1]
-#     all_files = directoryUtils.buildFileList(base_path, ext)
-#     if not all_files:
-#         print 'No files found in ' + base_path + ', please check directory and try again'
-#         return -1
-#     pfl = os.path.join(base_path, f_base + ".prm")
-#     for ifl in all_files:
-#         # only process files with correct extension
-#         if ifl.endswith(ext):
-#             # generate parameter file
-#             params = ['SPECTRAL_SUBSET = ( 1 0 0 0 0 0 0 0 0 0 0 )']
-#             doy = getMODISYrAndDoY(ifl)
-# #            ofl = os.path.join(output_path, '{0}.{1}.005{2}'.format(of_base, doy, of_ext))
-#             ofl = os.path.join(output_path, directoryUtils.getNewFilename(os.path.basename(ifl), of_base, of_ext, patterns[0], patterns[1]))
-#             checkfl = "{0}.{1}{2}".format(os.path.splitext(ofl)[0], suffix, os.path.splitext(ofl)[1])
-#             if not os.path.exists(checkfl) or overwrite == True:
-#                 generateParamFile(base_path, pfl, ifl, ofl, params)
-#                 reprojectMosaic(pfl, tools_path)
-#     return 0
 
 def extractEVI(base_path, output_path, tools_path,
                patterns = None, suffix = modis_constants['evi_subset'], overwrite = False, logger = None):
@@ -486,31 +352,6 @@ def extractEVI(base_path, output_path, tools_path,
                               modis_constants['evi_spectral_subset'], suffix, overwrite, -9999, logger)
     return new_files
 
-# def extractEVI(base_path, output_path, tools_path, filenames = ('MOD13Q1', '.hdf'), output_filenames = ('idn_phy_MOD13Q1', '.tif'),
-#                 patterns = (r'^(?P<datestamp>\d{4}[.]\d{2}[.]\d{2})?.*', r'{prefix}.{datestamp}_005{ext}'),
-#                overwrite = False, suffix = '1_km_monthly_EVI'):
-#     f_base = filenames[0] #'MOD13Q1'
-#     ext = filenames[1] #'.hdf'
-#     of_base = output_filenames[0]
-#     of_ext = output_filenames[1]
-#     all_files = directoryUtils.buildFileList(base_path, ext)
-#     if not all_files:
-#         print 'No files found in ' + base_path + ', please check directory and try again'
-#         return -1
-#     pfl = os.path.join(base_path, f_base + ".prm")
-#     for ifl in all_files:
-#         # only process files with correct extension
-#         if ifl.endswith(ext):
-#             # generate parameter file
-#             params = ['SPECTRAL_SUBSET = ( 0 1 0 0 0 0 0 0 0 0 0 )']
-#             doy = getMODISYrAndDoY(ifl)
-# #            ofl = os.path.join(output_path, '{0}.{1}.005{2}'.format(of_base, doy, of_ext))
-#             ofl = os.path.join(output_path, directoryUtils.getNewFilename(os.path.basename(ifl), of_base, of_ext, patterns[0], patterns[1]))
-#             checkfl = "{0}.{1}{2}".format(os.path.splitext(ofl)[0], suffix, os.path.splitext(ofl)[1])
-#             if not os.path.exists(checkfl) or overwrite == True:
-#                 generateParamFile(base_path, pfl, ifl, ofl, params)
-#                 reprojectMosaic(pfl, tools_path)
-#     return 0
 
 def extractSubset(base_path, output_path, tools_path,
                   patterns, subset, subset_name, overwrite = False, nodata=None, logger = None):
@@ -574,51 +415,6 @@ def extractLSTDay(base_path, output_path, tools_path, patterns = None, overwrite
         patterns = (modis_patterns['lst_in'], modis_patterns['lst_out'])
     new_files = extractSubset(base_path, output_path, tools_path, patterns,
                               modis_constants['lst_day_spectral_subset'], suffix, overwrite, logger=None)
-    # for f in new_files:
-    #     # copy file to tmp
-    #     tmpfile = os.path.join(output_path, 'tmpfile.tif')
-    #     import shutil
-    #     shutil.copyfile(os.path.join(output_path, f), tmpfile)
-    #     # set projection
-    #     try:
-    #         pf = platform.system()
-    #         if pf == 'Windows':
-    #             gdal_warp = os.path.join(tools_path, 'gdalwarp.exe')
-    #         elif pf == 'Linux':
-    #             gdal_warp = os.path.join(tools_path, 'gdalwarp')
-    #         check_call([gdal_warp, '-t_srs', 'EPSG:4326', '-overwrite', tmpfile, os.path.join(output_path, f)])
-    #     except CalledProcessError as e:
-    #         print("Error in converting to .tif")
-    #         print(e.output)
-    #         raise
-    #     os.remove(tmpfile)
-
-
-        #     f_base = filenames[0] #'MOD13Q1'
-#     ext = filenames[1] #'.hdf'
-#     of_base = output_filenames[0]
-#     of_ext = output_filenames[1]
-#     all_files = directoryUtils.buildFileList(base_path, ext)
-#     if not all_files:
-#         print 'No files found in ' + base_path + ', please check directory and try again'
-#         return -1
-#     pfl = os.path.join(base_path, f_base + ".prm")
-#     for ifl in all_files:
-#         # only process files with correct extension
-#         if ifl.endswith(ext):
-#             # generate parameter file
-#             params = ['SPECTRAL_SUBSET = ( 1 0 0 0 0 0 0 0 0 0 0 )']
-#             doy = getMODISYrAndDoY(ifl)
-# #            ofl = os.path.join(output_path, '{0}.{1}.005{2}'.format(of_base, doy, of_ext))
-#             ofl = os.path.join(output_path, directoryUtils.getNewFilename(os.path.basename(ifl), of_base, of_ext, patterns[0], patterns[1])+output_filenames[1])
-#             checkfl = "{0}.{1}{2}".format(os.path.splitext(ofl)[0], suffix, os.path.splitext(ofl)[1])
-#             if not os.path.exists(checkfl) or overwrite == True:
-#                 convertToTiff(ifl, ofl, tools_path)
-#                 for i in range(2,18):
-#                     rf = "{0}_{1}{2}".format(os.path.splitext(os.path.basename(ofl))[0], str(i).zfill(2), os.path.splitext(ofl)[1])
-#                     os.remove(os.path.join(output_path, rf))
-# #                generateParamFile(base_path, pfl, ifl, ofl, params)
-# #                reprojectMosaic(pfl, tools_path)
 
     return new_files
 
@@ -627,51 +423,6 @@ def extractLSTNight(base_path, output_path, tools_path, patterns = None, overwri
         patterns = (modis_patterns['lst_in'], modis_patterns['lst_out'])
     new_files = extractSubset(base_path, output_path, tools_path, patterns,
                               modis_constants['lst_night_spectral_subset'], suffix, overwrite, logger=None)
-    # for f in new_files:
-    #     # copy file to tmp
-    #     tmpfile = os.path.join(output_path, 'tmpfile.tif')
-    #     import shutil
-    #     shutil.copyfile(os.path.join(output_path, f), tmpfile)
-    #     # set projection
-    #     try:
-    #         pf = platform.system()
-    #         if pf == 'Windows':
-    #             gdal_warp = os.path.join(tools_path, 'gdalwarp.exe')
-    #         elif pf == 'Linux':
-    #             gdal_warp = os.path.join(tools_path, 'gdalwarp')
-    #         check_call([gdal_warp, '-t_srs', 'EPSG:4326', '-overwrite', tmpfile, os.path.join(output_path, f)])
-    #     except CalledProcessError as e:
-    #         print("Error in converting to .tif")
-    #         print(e.output)
-    #         raise
-    #     os.remove(tmpfile)
-
-#     f_base = filenames[0] #'MOD13Q1'
-#     ext = filenames[1] #'.hdf'
-#     of_base = output_filenames[0]
-#     of_ext = output_filenames[1]
-#     all_files = directoryUtils.buildFileList(base_path, ext)
-#     if not all_files:
-#         print 'No files found in ' + base_path + ', please check directory and try again'
-#         return -1
-#     pfl = os.path.join(base_path, f_base + ".prm")
-#     for ifl in all_files:
-#         # only process files with correct extension
-#         if ifl.endswith(ext):
-#             # generate parameter file
-#             params = ['SPECTRAL_SUBSET = ( 0 0 0 0 0 1 0 0 0 0 0 )']
-#             doy = getMODISYrAndDoY(ifl)
-# #            ofl = os.path.join(output_path, '{0}.{1}.005{2}'.format(of_base, doy, of_ext))
-#             ofl = os.path.join(output_path, directoryUtils.getNewFilename(os.path.basename(ifl), of_base, of_ext, patterns[0], patterns[1])+output_filenames[1])
-#             checkfl = "{0}.{1}{2}".format(os.path.splitext(ofl)[0], suffix, os.path.splitext(ofl)[1])
-#             if not os.path.exists(checkfl) or overwrite == True:
-#                 convertToTiff(ifl, ofl, tools_path)
-#                 for i in range(1,6) + range(7,18):
-#                     rf = "{0}_{1}{2}".format(os.path.splitext(os.path.basename(ofl))[0], str(i).zfill(2), os.path.splitext(ofl)[1])
-#                     os.remove(os.path.join(output_path, rf))
-# #                generateParamFile(base_path, pfl, ifl, ofl, params)
-# #                reprojectMosaic(pfl, tools_path)
-#
     return new_files
 
 def calcAverageOfDayNight_filter(dayDir, nightDir, outDir, patterns, logger=None):
@@ -724,19 +475,6 @@ def calcAverageOfDayNight(dayFile, nightFile, avgFile):
     # Save the output
     outRaster.save(avgFile)
     print "saved avg in: ", avgFile
-    return 0
-
-def calcAverageOfDayNight_gdal(dayFile, nightFile, avgFile):
-    gdal_calculations.Env.resampling = 'BILINEAR'
-    gdal_calculations.Env.reproject = True
-    gdal_calculations.Env.overwrite = True
-    gdal_calculations.Env.nodata = True
-    gdal.UseExceptions()
-    ds1 = gdal_calculations.Dataset(dayFile)
-    ds2 = gdal_calculations.Dataset(nightFile)
-    avg = (ds1 + ds2) / 2
-#    avg.SetNoDataValue(-9999)
-    avg.save(avgFile)
     return 0
 
 def calcAverageOfDayNight_os(dayFile, nightFile, avgFile, gdal_path):
@@ -796,7 +534,6 @@ def matchDayNightFiles(dayPath, nightPath, outPath, patterns = (None, None), ope
                 dp = os.path.join(dayPath, d_fl+ext)
                 np = os.path.join(nightPath, n_fl)
                 if open_src:
-#                    calcAverageOfDayNight_gdal(dp, np, avg_fl)
                     calcAverageOfDayNight_os(dp, np, avg_fl, gdal_path)
                 else:
                     calcAverageOfDayNight(dp, np, avg_fl)
