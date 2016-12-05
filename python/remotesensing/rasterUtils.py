@@ -2,24 +2,45 @@ __author__ = 'rochelle'
 #!/usr/bin/env python
 # Import system modules
 import os
-from subprocess import call, check_call, check_output, CalledProcessError
+import subprocess
+#from subprocess import call, check_call, check_output, Popen, CalledProcessError, STDOUT
 
 import utilities
 
-def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, nodata=False, logger=None):
+def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, nodata=False,
+                    srcnodata=None, dstnodata=None, logger=None):
     # call gdalwarp to clip to shapefile
     try:
         if logger: logger.debug("%s",shpfile)
         if logger: logger.debug("%s",in_raster)
         if logger: logger.debug("%s",out_raster)
         gdal_exe = os.path.join(gdal_path, 'gdalwarp')
+        options = [gdal_exe]
+        options.append('-t_srs')
+        options.append('EPSG:4326')
         if nodata:
-            retcode = call([gdal_exe, '-overwrite', '-t_srs', 'EPSG:4326', '-dstnodata', '-9999', '-crop_to_cutline', '-cutline', shpfile, in_raster, out_raster])
-        else:
-            retcode = call([gdal_exe, '-overwrite', '-t_srs', 'EPSG:4326', '-crop_to_cutline', '-cutline', shpfile, in_raster, out_raster])
+            options.append('-srcnodata')
+            options.append('-9999')
+            options.append('-dstnodata')
+            options.append('-9999')
+        if srcnodata:
+            options.append('-srcnodata')
+            options.append('{0}'.format(srcnodata))
+        if dstnodata:
+            options.append('-dstnodata')
+            options.append('{0}'.format(dstnodata))
+        options.append('-overwrite')
+        options.append('-crop_to_cutline')
+        options.append('-cutline')
+        options.append(shpfile)
+        options.append(in_raster)
+        options.append(out_raster)
+#        cal = '~/Downloads/gdal-1.10.1+dfsg/apps/gdalwarp -t_srs EPSG:4326 -srcnodata -3000 -dstnodata -9999 -overwrite -crop_to_cutline -cutline {0} {1} {2}'.format(shpfile, in_raster, out_raster)
+#        retcode = subprocess.call(cal, stderr=subprocess.STDOUT, shell=True)
+        retcode = subprocess.call(args=options, stderr=subprocess.STDOUT)
 #            print "gdalwarp -overwrite', '-t_srs', 'EPSG:4326', '-crop_to_cutline', '-cutline' {0}, {1}, {2}".format(shpfile, in_raster, out_raster)
         if logger: logger.debug("gdalwarp return code is %s", retcode)
-    except CalledProcessError as e:
+    except subprocess.CalledProcessError as e:
         if logger: logger.error("Error in gdalwarp")
         if logger: logger.error("%s",e.output)
 #        raise
@@ -40,7 +61,8 @@ def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, nodata=False, log
 #     print("successfully clipped rasters")
 #     return 0
 
-def cropFiles(base_path, output_path, bounds, tools_path, patterns = None, overwrite = False, nodata=True, logger = None):
+def cropFiles(base_path, output_path, bounds, tools_path, patterns = None,
+              overwrite = False, nodata=True, dstnodata=None, srcnodata=None, logger = None):
 #    import re
     fileslist = []
     if not patterns[0]:
@@ -64,7 +86,10 @@ def cropFiles(base_path, output_path, bounds, tools_path, patterns = None, overw
                 # unzip first
                 utilities.directoryUtils.unzipFile(ifl)
                 ifl = ifl[:-3] # remove .gz from filename
-            clipRasterToShp(shpfile=bounds, in_raster=ifl, out_raster=out_raster, gdal_path=tools_path, nodata=nodata)
+            if srcnodata or dstnodata:
+                nodata = False
+            clipRasterToShp(shpfile=bounds, in_raster=ifl, out_raster=out_raster, gdal_path=tools_path,
+                            nodata=nodata, srcnodata=srcnodata, dstnodata=dstnodata)
             fileslist.append(new_filename)
     return fileslist
 
@@ -117,11 +142,11 @@ def resampleRaster(in_raster, out_raster, gdal_path,
 
         options.append(in_raster)
         options.append(out_raster)
-        retcode = call(options)
+        retcode = subprocess.call(options)
 #        [gdal_exe, '-outsize', xPc, yPc, '-r', 'bilinear', in_raster,
 #         out_raster])
         if logger: logger.debug("gdalwarp return code is %s", retcode)
-    except CalledProcessError as e:
+    except subprocess.CalledProcessError as e:
         if logger: logger.error("Error in gdalwarp")
         if logger: logger.error("%s", e.output)
         #        raise
@@ -129,6 +154,34 @@ def resampleRaster(in_raster, out_raster, gdal_path,
         if logger: logger.error("Warning in gdalwarp")
 
     return 0
+
+def reprojectRaster(in_raster, out_raster, gdal_path, t_srs=None, overwrite=False, logger=None):
+    try:
+        if logger: logger.debug("%s", in_raster)
+        if logger: logger.debug("%s", out_raster)
+        gdal_exe = os.path.join(gdal_path, 'gdalwarp')
+        options = [gdal_exe]
+        options.append('-srcnodata')
+        options.append('-3000')
+        options.append('-dstnodata')
+        options.append('-9999')
+        if overwrite:
+            options.append('-overwrite')
+        if t_srs:
+            options.append('-t_srs')
+            options.append("{0}".format(t_srs))
+        options.append(in_raster)
+        options.append(out_raster)
+        retcode = subprocess.call(options)
+        if logger: logger.debug("gdalwarp return code is %s", retcode)
+    except subprocess.CalledProcessError as e:
+        if logger: logger.error("Error in gdalwarp")
+        if logger: logger.error("%s", e.output)
+        #    raise
+    except Exception, e:
+        if logger: logger.error("Warning in gdalwarp")
+    return 0
+
 
 def setRasterNoDataValues(in_raster, out_raster, gdal_path, dst_nodata=None, src_nodata=None,
                           output_type = None, overwrite=False, logger=None):
@@ -150,9 +203,9 @@ def setRasterNoDataValues(in_raster, out_raster, gdal_path, dst_nodata=None, src
             options.append(output_type)
         options.append(in_raster)
         options.append(out_raster)
-        retcode = call(options)
+        retcode = subprocess.call(options)
         if logger: logger.debug("gdalwarp return code is %s", retcode)
-    except CalledProcessError as e:
+    except subprocess.CalledProcessError as e:
         if logger: logger.error("Error in gdalwarp")
         if logger: logger.error("%s", e.output)
         #        raise
