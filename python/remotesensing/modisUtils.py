@@ -145,7 +145,9 @@ def mosaicTiles(files, output_dir, tools_dir="", overwrite = False, subset=[1,1,
         mrtpath = "c:\\MODIS\\bin\\"
     filelist = os.path.join(output_dir, "file_list.txt")
     writeMosaicList(filelist, files)
-    new_filename = filenameUtils.generateOutputFilename(os.path.basename(files[0]), modis_patterns['mosaic_in'], modis_patterns['mosaic_out'])
+    new_filename = filenameUtils.generateOutputFilename(os.path.basename(files[0]),
+                                                        modis_patterns['mosaic_in'],
+                                                        modis_patterns['mosaic_out'], False)
 
     if not os.path.exists(os.path.normpath(os.path.join(output_dir, new_filename))) or overwrite == True:
         mosaicFiles(os.path.normpath(filelist), os.path.normpath(os.path.join(output_dir, new_filename)), os.path.normpath(mrtpath))
