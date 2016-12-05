@@ -221,7 +221,7 @@ def generateVCIConfig(country, interval, start_date, output):
                                                                                               country_l=country.lower(),
                                                                                               year=year, month=month)
 
-            pattern = '^(?P<product>MOD\d{2}A\d{1}).(?P<year>\d{4}).(?P<month>\d{2}).(?P<day>\d{2}).(?P<version>\d{3}).(?P<subset>.*)(?P<extension>\.tif$)'
+            pattern = '^(?P<product>MOD\d{2}A\d{1}).(?P<year>\d{4}).(?P<month>\d{2}).(?P<day>\d{2}).(?P<version>\d{3}).(?P<subset>.*).rp(?P<extension>\.tif$)'
 
 
             file_string = """
@@ -247,6 +247,13 @@ def generateVCIConfig(country, interval, start_date, output):
       layer: EVI
       input_dir: {data_dir}/MODIS/MOD13A3/Processed/HDF_MOD
       output_dir: {data_dir}/MODIS/MOD13A3/Processed/EVI
+
+    # reproject from Clarke Unknown to WGS84
+    - process: Raster
+      type: reproject
+      input_file: {data_dir}/MODIS/MOD13A3/Processed/EVI/MOD13A3.{year}.{month}.01.005.1_km_monthly_EVI.tif
+      output_file: {data_dir}/MODIS/MOD13A3/Processed/EVI/MOD13A3.{year}.{month}.01.005.1_km_monthly_EVI.rp.tif
+      t_srs: EPSG:4326
 
     # crop data to region
     - process: Raster
@@ -398,19 +405,43 @@ def generateVHIConfig(country, interval, start_date, output):
                 (product_dir=_defaults['base_product_dir'],
                  country_l=country.lower(),
                  year=year, month=month)
+            _TCI_resample = '{0}_resample.tif'.format(os.path.splitext(_TCI_file)[0])
+            _output_pattern = 'idn_cli_{product}.{year}.{month}.{subset}_new{extension}'
+            _file_pattern = '^idn_cli_(?P<product>MOD\d{2}C\d{1}).(?P<year>\d{4}).(?P<month>\d{2}).(?P<subset>tci)_resample(?P<extension>\.tif$)'
 
             file_string = """
 ## Processing chain begin - Compute Vegetation Health Index
+    # resample TCI to match VCI
+    - process: Raster
+      type: resample
+      open_source:
+      tr_X: 0.008365616936217
+      tr_Y: -0.008365616936217
+      src_nodata: -9999
+      dst_nodata: -9999
+      input_file: {tci_file}
+      output_file: {tci_resample}
+
+    - process: Raster
+      type: crop
+      overwrite:
+      file_pattern: {file_pattern}
+      output_pattern: {output_pattern}
+      input_dir: {product_dir}/05_Analysis/03_Early_Warning/Temperature_Condition_Index/
+      output_dir: {product_dir}/05_Analysis/03_Early_Warning/Temperature_Condition_Index/
+      boundary_file: {product_dir}/01_Data/02_IDN/ShapeFiles/Boundaries/Subset/MODIS/idn_phy_modis_1km_grid_diss_a.shp
+
     - process: Analysis
       type: VHI
       open_source:
       VCI_file: {vci_file}
       TCI_file: {tci_file}
-      output_file: {data_dir}/MODIS/Monthly/{country}/VHI/{country_l}_cli_MOD11C3.{year}.{month}.1_km_monthly_EVI_LST_VHI.tif
+      output_file: {product_dir}/05_Analysis/03_Early_Warning/Vegetation_Health_Index/{country_l}_cli_MOD11C3.{year}.{month}.1_km_monthly_EVI_LST_VHI.tif
 ## Processing chain end - Compute Vegetation Health Index
 """.format(year=year, month=month, country=country, tci_file=_TCI_file,
            vci_file=_VCI_file, country_l=country.lower(),
-           product_dir=_defaults['base_product_dir'], data_dir=_defaults['base_data_dir'])
+           product_dir=_defaults['base_product_dir'], data_dir=_defaults['base_data_dir'],
+           output_pattern=_output_pattern, file_pattern=_file_pattern, tci_resample=_TCI_resample)
 
             pfile.write(file_string)
             pfile.close()
