@@ -363,6 +363,15 @@ def __processRaster(process, cfg):
         nodata = True
         if 'no_nodata' in process:
             nodata = False
+        src_nodata = None
+        if 'src_nodata' in process:
+            src_nodata = process['src_nodata']
+            nodata = False
+        dst_nodata = None
+        if 'dst_nodata' in process:
+            dst_nodata = process['dst_nodata']
+            nodata = False
+
         try:
             inWks = process['input_dir']
         except Exception, e:
@@ -379,7 +388,8 @@ def __processRaster(process, cfg):
             __configFileError("No boundary file specified." ,e)
             raise
         rasterUtils.cropFiles(base_path=inWks, output_path=outWks, bounds=boundFile, tools_path=toolDir,
-                              patterns=patterns, nodata=nodata, overwrite=overwrite)
+                              patterns=patterns, nodata=nodata, overwrite=overwrite,
+                              srcnodata=src_nodata, dstnodata=dst_nodata)
     elif process['type'] == 'resample':
         logger.debug("resample raster")
         try:
@@ -424,6 +434,28 @@ def __processRaster(process, cfg):
             rasterUtils.resampleRaster(in_raster=inWks, out_raster=outWks, gdal_path=gdal,
                                        outX_pc=outX, outY_pc=outY, trX=tr_X, trY=tr_Y,
                                        src_nodata=src_nodata, dst_nodata=dst_nodata)
+    elif process['type'] == 'reproject':
+        logger.debug("reproject raster")
+        try:
+            gdal = cfg['directory']['GDAL']
+        except Exception, e:
+            __configFileError("No GDAL directory set. Using {0}".format(gdal), e)
+            raise
+        try:
+            inWks = process['input_file']
+        except Exception, e:
+            __configFileError("No input file 'input_file' set.", e)
+            raise
+        try:
+            outWks = process['output_file']
+        except Exception, e:
+            __configFileError("No output file 'output_file' set.", e)
+            raise
+        t_srs = None
+        if 't_srs' in process:
+            t_srs = process['t_srs']
+
+        rasterUtils.reprojectRaster(in_raster=inWks, out_raster=outWks, gdal_path=gdal, t_srs=t_srs)
     return 0
 
 
