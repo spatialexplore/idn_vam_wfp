@@ -16,6 +16,9 @@ def clipRasterToShp(shpfile, in_raster, out_raster, gdal_path, nodata=False,
         if logger: logger.debug("%s",out_raster)
         gdal_exe = os.path.join(gdal_path, 'gdalwarp')
         options = [gdal_exe]
+        options.append('--config')
+        options.append('GDALWARP_IGNORE_BAD_CUTLINE')
+        options.append('YES')
         options.append('-t_srs')
         options.append('EPSG:4326')
         if nodata:
